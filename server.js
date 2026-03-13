@@ -87,6 +87,7 @@ app.get('/rounds/:id', requireAuth, (req, res) => {
   const players = repo.getRoundPlayers(round.id);
   const teams = repo.getRoundTeams(round.id);
   const playerQuery = String(req.query.player_query || '').trim();
+  const view = String(req.query.view || (round.status === 'signup' ? 'signup' : 'teams')).trim();
   res.render('round', {
     round,
     players,
@@ -94,7 +95,8 @@ app.get('/rounds/:id', requireAuth, (req, res) => {
     acePot: repo.getRoundDisplayedAcePot(round.id),
     allPlayers: repo.listPlayers(playerQuery),
     eligibleHoles: repo.getEligibleCtpHoles(),
-    playerQuery
+    playerQuery,
+    view
   });
 });
 

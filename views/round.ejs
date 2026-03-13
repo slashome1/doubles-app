@@ -13,8 +13,26 @@
   </div>
 </section>
 
+<% const activePlayers = players.filter(p => !p.dropped); %>
+<% const showPlayersTab = players.length > 0; %>
+<% const currentView = view || (round.status === 'signup' ? 'signup' : 'teams'); %>
+
+<% if (showPlayersTab || round.status !== 'signup') { %>
+<section class="card">
+  <div class="actions-row">
+    <% if (round.status === 'signup') { %>
+      <a class="button <%= currentView === 'signup' ? 'primary' : 'secondary' %>" href="/rounds/<%= round.id %>?view=signup">Signup</a>
+    <% } %>
+    <a class="button <%= currentView === 'players' ? 'primary' : 'secondary' %>" href="/rounds/<%= round.id %>?view=players">Players</a>
+    <% if (round.status !== 'signup') { %>
+      <a class="button <%= currentView === 'teams' ? 'primary' : 'secondary' %>" href="/rounds/<%= round.id %>?view=teams">Round</a>
+    <% } %>
+  </div>
+</section>
+<% } %>
+
 <section class="grid two">
-  <% if (round.status === 'signup') { %>
+  <% if (round.status === 'signup' && currentView !== 'players') { %>
   <section class="card">
     <h2>Signup</h2>
     <form method="get" action="/rounds/<%= round.id %>" class="stack small">
@@ -48,6 +66,7 @@
   </section>
   <% } %>
 
+  <% if (currentView === 'players') { %>
   <section class="card">
     <h2>Players in Round</h2>
     <% if (!players.length) { %><p class="muted">Nobody signed up yet.</p><% } %>
@@ -77,6 +96,7 @@
       <% }) %>
     </div>
   </section>
+  <% } %>
 </section>
 
 <% if (round.status === 'signup') { %>
@@ -91,16 +111,19 @@
 
 <% if (round.status === 'ready' || round.status === 'teams') { %>
 <section class="grid two">
+  <% if (!teams.length && currentView !== 'players') { %>
   <section class="card">
     <h2>Randomize Teams</h2>
-    <p>Current players: <strong><%= players.filter(p => !p.dropped).length %></strong></p>
+    <p>Current players: <strong><%= activePlayers.length %></strong></p>
     <p>CTP payout: <strong><%= currency(round.ctp_total) %></strong></p>
     <p>Winning payout: <strong><%= currency(round.payout_total) %></strong></p>
     <form method="post" action="/rounds/<%= round.id %>/randomize">
       <button class="button primary large" type="submit">Randomize Teams</button>
     </form>
   </section>
+  <% } %>
 
+  <% if (currentView !== 'players') { %>
   <section class="card">
     <h2>Teams</h2>
     <% if (!teams.length) { %>
@@ -125,6 +148,7 @@
       </form>
     <% } %>
   </section>
+  <% } %>
 </section>
 <% } %>
 
