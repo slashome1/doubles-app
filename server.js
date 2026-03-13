@@ -41,6 +41,9 @@ function requireAdmin(req, res, next) {
 }
 function setFlash(req, message) { req.session.flash = message; }
 function back(req, fallback = '/') { return req.get('referer') || fallback; }
+function parseAceIds(value) {
+  return Array.isArray(value) ? value.map(Number) : value ? [Number(value)] : [];
+}
 
 app.get('/', (req, res) => {
   if (!req.session.user) return res.redirect('/login');
@@ -73,6 +76,11 @@ app.post('/rounds', requireAuth, (req, res) => {
 });
 
 app.get('/rounds/history', requireAuth, (req, res) => res.render('round-history', { rounds: repo.listCompletedRounds(100) }));
+app.get('/rounds/:id/detail', requireAuth, (req, res) => {
+  const detail = repo.getRoundDetail(Number(req.params.id));
+  if (!detail) return res.status(404).render('error', { message: 'Round not found.' });
+  res.render('round-detail', detail);
+});
 
 app.get('/rounds/:id', requireAuth, (req, res) => {
   const round = repo.getRound(Number(req.params.id));
@@ -214,13 +222,10 @@ app.post('/admin/users/pins', requireAdmin, (req, res) => {
 
 app.post('/rounds/:id/complete', requireAuth, (req, res) => {
   const roundId = Number(req.params.id);
-  const acePlayerIds = Array.isArray(req.body.ace_player_ids)
-    ? req.body.ace_player_ids.map(Number)
-    : req.body.ace_player_ids ? [Number(req.body.ace_player_ids)] : [];
   try {
     repo.completeRound(roundId, {
       aceResult: req.body.ace_result,
-      acePlayerIds,
+      acePlayerIds: parseAceIds(req.body.ace_player_ids),
       ctpPlayerId: req.body.ctp_player_id ? Number(req.body.ctp_player_id) : null,
       winnerTeamId: req.body.winner_team_id ? Number(req.body.winner_team_id) : null
     });
@@ -230,6 +235,34 @@ app.post('/rounds/:id/complete', requireAuth, (req, res) => {
     setFlash(req, error.message);
     res.redirect(`/rounds/${roundId}`);
   }
+});
+
+app.post('/rounds/:id/correct-payouts', requireAdmin, (req, res) => {
+  const roundId = Number(req.params.id);
+  try {
+    repo.correctCompletedRound(roundId, {
+      aceResult: req.body.ace_result,
+      acePlayerIds: parseAceIds(req.body.ace_player_ids),
+      ctpPlayerId: req.body.ctp_player_id ? Number(req.body.ctp_player_id) : null,
+      winnerTeamId: req.body.winner_team_id ? Number(req.body.winner_team_id) : null
+    });
+    setFlash(req, 'Completed round payouts corrected.');
+  } catch (error) {
+    setFlash(req, error.message);
+  }
+  res.redirect(`/rounds/${roundId}/detail`);
+});
+
+app.get('/admin/export/rounds.csv', requireAdmin, (req, res) => {
+  res.type('text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename="doubles-rounds.csv"');
+  res.send(repo.exportRoundsCsv());
+});
+
+app.get('/admin/export/payouts.csv', requireAdmin, (req, res) => {
+  res.type('text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename="doubles-payouts.csv"');
+  res.send(repo.exportPayoutsCsv());
 });
 
 app.post('/rounds/:id/cancel', requireAdmin, (req, res) => {

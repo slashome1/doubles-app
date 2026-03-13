@@ -1,6 +1,14 @@
 <%- include('partials/header') %>
 <section class="card">
-  <h2>Completed Round History</h2>
+  <div class="section-head">
+    <h2>Completed Round History</h2>
+    <% if (currentUser.role === 'admin') { %>
+      <div class="actions-row">
+        <a class="button secondary" href="/admin/export/rounds.csv">Export Rounds CSV</a>
+        <a class="button secondary" href="/admin/export/payouts.csv">Export Payouts CSV</a>
+      </div>
+    <% } %>
+  </div>
   <% if (!rounds.length) { %>
     <p class="muted">No completed rounds yet.</p>
   <% } else { %>
@@ -13,6 +21,9 @@
           <div>Payouts — ACE: <strong><%= currency(round.ace_payout_total) %></strong>, CTP: <strong><%= currency(round.ctp_payout_total) %></strong>, Winners: <strong><%= currency(round.winner_payout_total) %></strong></div>
           <div>CTP winner(s): <strong><%= round.ctp_winner_names || '—' %></strong></div>
           <div>Winning team(s): <strong><%= round.winning_teams || '—' %></strong></div>
+          <div class="actions-row">
+            <a class="button secondary" href="/rounds/<%= round.id %>/detail">View Details</a>
+          </div>
         </div>
       <% }) %>
     </div>

@@ -1,0 +1,90 @@
+<%- include('partials/header') %>
+<section class="hero card">
+  <div>
+    <div class="eyebrow">Completed Round #<%= round.id %></div>
+    <div class="money">ACE Pot <%= currency(round.ace_pot_before) %> → <%= currency(round.ace_pot_after) %></div>
+    <% if (round.ctp_hole) { %><div class="pill ctp-pill">CTP Hole: <strong><%= round.ctp_hole %></strong></div><% } %>
+  </div>
+  <div class="totals-grid">
+    <div><span>Greens</span><strong><%= currency(round.greens_total) %></strong></div>
+    <div><span>CTP</span><strong><%= currency(round.ctp_total) %></strong></div>
+    <div><span>Payout</span><strong><%= currency(round.payout_total) %></strong></div>
+  </div>
+</section>
+
+<section class="grid two">
+  <section class="card">
+    <h2>Players</h2>
+    <div class="stack small">
+      <% players.forEach((player) => { %>
+        <div class="team-card">
+          <div class="player-head"><strong><%= player.name %></strong><span><%= player.dropped ? 'Dropped' : (player.is_member ? 'Member' : 'Guest') %></span></div>
+          <div>Greens: <strong><%= currency(player.greens_fee) %></strong></div>
+          <div>CTP: <strong><%= player.ctp_paid ? 'Yes' : 'No' %></strong> · Ace: <strong><%= player.ace_paid ? 'Yes' : 'No' %></strong> · Payout: <strong><%= player.payout_paid ? 'Yes' : 'No' %></strong></div>
+        </div>
+      <% }) %>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Teams & Payouts</h2>
+    <div class="stack small">
+      <% teams.forEach((team) => { %>
+        <div class="team-card">
+          <div class="player-head"><strong><%= team.team_name %></strong><span><%= team.is_cali ? 'Cali' : 'Pair' %></span></div>
+          <div><%= team.player_names %></div>
+        </div>
+      <% }) %>
+    </div>
+    <hr />
+    <div class="stack small">
+      <% payouts.forEach((payout) => { %>
+        <div class="team-card">
+          <div class="player-head"><strong><%= payout.type.toUpperCase() %></strong><span><%= currency(payout.amount) %></span></div>
+          <div><%= payout.player_name || payout.team_name || '—' %></div>
+        </div>
+      <% }) %>
+    </div>
+  </section>
+</section>
+
+<% if (currentUser.role === 'admin') { %>
+<section class="card">
+  <h2>Admin Payout Corrections</h2>
+  <form method="post" action="/rounds/<%= round.id %>/correct-payouts" class="stack">
+    <label>Ace result
+      <select name="ace_result" required>
+        <option value="no" <%= round.ace_result === 'no' ? 'selected' : '' %>>No ace</option>
+        <option value="yes" <%= round.ace_result === 'yes' ? 'selected' : '' %>>One or more aces</option>
+      </select>
+    </label>
+    <label>Ace hitter(s)
+      <select name="ace_player_ids" multiple size="5">
+        <% players.filter(p => !p.dropped).forEach((player) => { %>
+          <option value="<%= player.player_id %>" <%= acePlayers.some(a => a.id === player.player_id) ? 'selected' : '' %>><%= player.name %></option>
+        <% }) %>
+      </select>
+    </label>
+    <label>Who got CTP? (Payout <%= currency(round.ctp_payout_total) %>)
+      <select name="ctp_player_id">
+        <option value="">No CTP winner</option>
+        <% const currentCtp = payouts.find(p => p.type === 'ctp'); %>
+        <% players.filter(p => !p.dropped).forEach((player) => { %>
+          <option value="<%= player.player_id %>" <%= currentCtp && currentCtp.player_id === player.player_id ? 'selected' : '' %>><%= player.name %></option>
+        <% }) %>
+      </select>
+    </label>
+    <label>Winning team (Payout <%= currency(round.winner_payout_total) %>)
+      <select name="winner_team_id">
+        <option value="">No winner selected</option>
+        <% const currentWinner = payouts.find(p => p.type === 'winner'); %>
+        <% teams.forEach((team) => { %>
+          <option value="<%= team.id %>" <%= currentWinner && currentWinner.team_id === team.id ? 'selected' : '' %>><%= team.team_name %> — <%= team.player_names %></option>
+        <% }) %>
+      </select>
+    </label>
+    <button class="button primary" type="submit">Save Payout Corrections</button>
+  </form>
+</section>
+<% } %>
+<%- include('partials/footer') %>

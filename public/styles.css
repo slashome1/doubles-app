@@ -38,6 +38,7 @@ input, select, textarea { width:100%; padding:.85rem .95rem; border-radius:14px;
 .player-card, .team-card { border:1px solid var(--border); border-radius:16px; padding:.8rem; background:#10151c; }
 .player-head { display:flex; justify-content:space-between; gap:1rem; margin-bottom:.5rem; }
 .actions-row { display:flex; gap:.5rem; margin-top:.75rem; flex-wrap: wrap; }
+.section-head { display:flex; justify-content:space-between; gap:1rem; align-items:center; flex-wrap:wrap; margin-bottom:1rem; }
 .totals-grid { display:grid; grid-template-columns: repeat(3, minmax(80px, 1fr)); gap:.75rem; }
 .totals-grid div, .stat { text-align:center; }
 .totals-grid span { display:block; color:var(--muted); font-size:.85rem; }

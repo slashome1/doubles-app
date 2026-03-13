@@ -30,7 +30,10 @@ It keeps the app small, fast, and easy to maintain:
 - random CTP hole selection from admin-approved holes
 - team randomization with Cali support
 - completed round history page
+- completed round detail screen
 - end-of-round payouts for ace / CTP / winners
+- admin correction form for completed-round payouts
+- CSV export for rounds and payouts
 - persistent running ACE pot across rounds
 - admin settings for CTP holes + ACE pot adjustment
 - admin stats dashboard

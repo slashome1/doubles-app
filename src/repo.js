@@ -42,6 +42,12 @@ function findUserByCredentials(username, pin) {
   return { id: user.id, username: user.username, role: user.role };
 }
 
+function updateUserPin(username, pin) {
+  if (!/^\d{4}$/.test(String(pin))) throw new Error('PIN must be exactly 4 digits.');
+  const result = db.prepare('UPDATE users SET pin = ? WHERE username = ?').run(hashPin(String(pin)), username);
+  if (!result.changes) throw new Error(`User not found: ${username}`);
+}
+
 function listPlayers() {
   return db.prepare('SELECT * FROM players WHERE is_active = 1 ORDER BY LOWER(name) ASC').all();
 }
@@ -136,19 +142,13 @@ function setRoundCtpHole(roundId, hole) {
   db.prepare('UPDATE rounds SET ctp_hole = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(hole, nextStatus, roundId);
 }
 
-function updateUserPin(username, pin) {
-  if (!/^\d{4}$/.test(String(pin))) throw new Error('PIN must be exactly 4 digits.');
-  const result = db.prepare('UPDATE users SET pin = ? WHERE username = ?').run(hashPin(String(pin)), username);
-  if (!result.changes) throw new Error(`User not found: ${username}`);
+function clearTeams(roundId) {
+  db.prepare('DELETE FROM round_teams WHERE round_id = ?').run(roundId);
 }
 
 function resetTeams(roundId) {
   clearTeams(roundId);
   db.prepare("UPDATE rounds SET status = 'ready', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(roundId);
-}
-
-function clearTeams(roundId) {
-  db.prepare('DELETE FROM round_teams WHERE round_id = ?').run(roundId);
 }
 
 function shuffle(array) {
@@ -211,6 +211,176 @@ function setManualTeams(roundId, entries) {
   setRoundStatus(roundId, 'teams');
 }
 
+function listCompletedRounds(limit = 50) {
+  return db.prepare(`
+    SELECT r.*, 
+      (SELECT GROUP_CONCAT(p.name, ', ') FROM payouts pa JOIN players p ON p.id = pa.player_id WHERE pa.round_id = r.id AND pa.type = 'ctp') as ctp_winner_names,
+      (SELECT GROUP_CONCAT(t2.team_name || ': ' || IFNULL(t2.player_names,''), '; ')
+       FROM (
+         SELECT t.id, t.team_name, GROUP_CONCAT(p.name, ' / ') as player_names
+         FROM round_teams t
+         LEFT JOIN round_team_players rtp ON rtp.team_id = t.id
+         LEFT JOIN round_players rp ON rp.id = rtp.round_player_id
+         LEFT JOIN players p ON p.id = rp.player_id
+         WHERE t.round_id = r.id
+           AND EXISTS (SELECT 1 FROM payouts pa WHERE pa.team_id = t.id AND pa.round_id = r.id AND pa.type = 'winner')
+         GROUP BY t.id
+       ) t2) as winning_teams
+    FROM rounds r
+    WHERE r.status = 'completed'
+    ORDER BY r.completed_at DESC, r.id DESC
+    LIMIT ?
+  `).all(limit);
+}
+
+function getRoundDetail(roundId) {
+  const round = getRound(roundId);
+  if (!round) return null;
+  const players = getRoundPlayers(roundId);
+  const teams = getRoundTeams(roundId);
+  const payouts = db.prepare(`
+    SELECT pa.*, p.name as player_name, t.team_name
+    FROM payouts pa
+    LEFT JOIN players p ON p.id = pa.player_id
+    LEFT JOIN round_teams t ON t.id = pa.team_id
+    WHERE pa.round_id = ?
+    ORDER BY pa.type ASC, pa.id ASC
+  `).all(roundId);
+  const acePlayers = db.prepare(`
+    SELECT p.id, p.name
+    FROM round_aces ra
+    JOIN players p ON p.id = ra.player_id
+    WHERE ra.round_id = ?
+    ORDER BY p.name ASC
+  `).all(roundId);
+  return { round, players, teams, payouts, acePlayers };
+}
+
+function applyRoundPayouts(roundId, payload) {
+  const round = getRound(roundId);
+  if (!round) throw new Error('Round not found');
+  const activePlayers = getRoundPlayers(roundId).filter((p) => !p.dropped);
+  const teams = getRoundTeams(roundId);
+  if (!activePlayers.length || !teams.length) throw new Error('Round is missing players or teams.');
+  const aceContributors = activePlayers.filter((p) => p.ace_paid);
+  const validPlayerIds = new Set(activePlayers.map((p) => p.player_id));
+  const validTeamIds = new Set(teams.map((t) => t.id));
+  const acePlayerIds = (payload.acePlayerIds || []).filter((id) => validPlayerIds.has(id));
+  if (payload.aceResult === 'yes' && !acePlayerIds.length) throw new Error('Select at least one ace hitter.');
+  if (payload.ctpPlayerId && !validPlayerIds.has(payload.ctpPlayerId)) throw new Error('Invalid CTP winner.');
+  if (payload.winnerTeamId && !validTeamIds.has(payload.winnerTeamId)) throw new Error('Invalid winning team.');
+
+  const ctpPrize = activePlayers.filter((p) => p.ctp_paid).length;
+  const winnerPrize = activePlayers.filter((p) => p.payout_paid).length * 5;
+  const acePotBefore = round.ace_pot_before || getAcePot();
+  let acePotAfter = acePotBefore;
+  let acePayoutTotal = 0;
+
+  db.prepare('DELETE FROM round_aces WHERE round_id = ?').run(roundId);
+  db.prepare('DELETE FROM payouts WHERE round_id = ?').run(roundId);
+
+  if (payload.aceResult === 'yes') {
+    const share = acePotBefore / acePlayerIds.length;
+    acePayoutTotal = acePotBefore;
+    acePotAfter = 0;
+    acePlayerIds.forEach((playerId) => {
+      db.prepare('INSERT INTO round_aces (round_id, player_id) VALUES (?, ?)').run(roundId, playerId);
+      db.prepare('INSERT INTO payouts (round_id, type, player_id, amount) VALUES (?, ?, ?, ?)').run(roundId, 'ace', playerId, share);
+    });
+  } else {
+    acePotAfter = acePotBefore + aceContributors.length;
+  }
+
+  if (payload.ctpPlayerId) {
+    db.prepare('INSERT INTO payouts (round_id, type, player_id, amount) VALUES (?, ?, ?, ?)').run(roundId, 'ctp', payload.ctpPlayerId, ctpPrize);
+  }
+  if (payload.winnerTeamId) {
+    const teamPlayers = db.prepare(`
+      SELECT p.id FROM round_team_players rtp
+      JOIN round_players rp ON rp.id = rtp.round_player_id
+      JOIN players p ON p.id = rp.player_id
+      WHERE rtp.team_id = ?
+    `).all(payload.winnerTeamId);
+    teamPlayers.forEach((player) => {
+      db.prepare('INSERT INTO payouts (round_id, type, player_id, team_id, amount) VALUES (?, ?, ?, ?, ?)')
+        .run(roundId, 'winner', player.id, payload.winnerTeamId, teamPlayers.length ? winnerPrize / teamPlayers.length : 0);
+    });
+  }
+
+  db.prepare(`UPDATE rounds SET
+    ace_result = ?,
+    ace_pot_before = ?,
+    ace_pot_after = ?,
+    ace_payout_total = ?,
+    ctp_payout_total = ?,
+    winner_payout_total = ?,
+    updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?`)
+    .run(payload.aceResult, acePotBefore, acePotAfter, acePayoutTotal, ctpPrize, winnerPrize, roundId);
+
+  return { acePotAfter };
+}
+
+function completeRound(roundId, payload) {
+  const round = getRound(roundId);
+  if (!round) throw new Error('Round not found');
+  if (round.status !== 'teams') throw new Error('Round must have teams before completion.');
+  db.transaction(() => {
+    const { acePotAfter } = applyRoundPayouts(roundId, payload);
+    db.prepare(`UPDATE rounds SET
+      status = 'completed',
+      completed_at = CURRENT_TIMESTAMP,
+      updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?`).run(roundId);
+    setAcePot(acePotAfter);
+  })();
+}
+
+function correctCompletedRound(roundId, payload) {
+  const round = getRound(roundId);
+  if (!round || round.status !== 'completed') throw new Error('Round must already be completed.');
+  db.transaction(() => {
+    const { acePotAfter } = applyRoundPayouts(roundId, payload);
+    const currentActive = getActiveRound();
+    if (!currentActive || currentActive.id === roundId) {
+      setAcePot(acePotAfter);
+    }
+  })();
+}
+
+function exportRoundsCsv() {
+  const rows = db.prepare(`
+    SELECT r.id, r.created_at, r.completed_at, r.ctp_hole, r.ace_result,
+      r.ace_pot_before, r.ace_pot_after, r.ace_payout_total, r.ctp_payout_total, r.winner_payout_total,
+      r.greens_total, r.ctp_total, r.payout_total,
+      (SELECT COUNT(*) FROM round_players rp WHERE rp.round_id = r.id AND rp.dropped = 0) as active_players
+    FROM rounds r
+    ORDER BY r.id DESC
+  `).all();
+  const header = ['round_id','created_at','completed_at','ctp_hole','ace_result','ace_pot_before','ace_pot_after','ace_payout_total','ctp_payout_total','winner_payout_total','greens_total','ctp_total','payout_total','active_players'];
+  const lines = [header.join(',')];
+  for (const row of rows) {
+    lines.push(header.map((key) => JSON.stringify(row[key] ?? '')).join(','));
+  }
+  return lines.join('\n');
+}
+
+function exportPayoutsCsv() {
+  const rows = db.prepare(`
+    SELECT pa.round_id, pa.type, pa.amount, p.name as player_name, t.team_name, pa.created_at
+    FROM payouts pa
+    LEFT JOIN players p ON p.id = pa.player_id
+    LEFT JOIN round_teams t ON t.id = pa.team_id
+    ORDER BY pa.round_id DESC, pa.id ASC
+  `).all();
+  const header = ['round_id','type','amount','player_name','team_name','created_at'];
+  const lines = [header.join(',')];
+  for (const row of rows) {
+    lines.push(header.map((key) => JSON.stringify(row[key] ?? '')).join(','));
+  }
+  return lines.join('\n');
+}
+
 function getStats() {
   const totals = db.prepare(`
     SELECT
@@ -253,107 +423,16 @@ function getStats() {
   return { totals, memberCounts, playerStats, payoutHistory, acePot: getAcePot() };
 }
 
-function listCompletedRounds(limit = 50) {
-  return db.prepare(`
-    SELECT r.*, 
-      (SELECT GROUP_CONCAT(p.name, ', ') FROM payouts pa JOIN players p ON p.id = pa.player_id WHERE pa.round_id = r.id AND pa.type = 'ctp') as ctp_winner_names,
-      (SELECT GROUP_CONCAT(t2.team_name || ': ' || IFNULL(t2.player_names,''), '; ')
-       FROM (
-         SELECT t.id, t.team_name, GROUP_CONCAT(p.name, ' / ') as player_names
-         FROM round_teams t
-         LEFT JOIN round_team_players rtp ON rtp.team_id = t.id
-         LEFT JOIN round_players rp ON rp.id = rtp.round_player_id
-         LEFT JOIN players p ON p.id = rp.player_id
-         WHERE t.round_id = r.id
-           AND EXISTS (SELECT 1 FROM payouts pa WHERE pa.team_id = t.id AND pa.round_id = r.id AND pa.type = 'winner')
-         GROUP BY t.id
-       ) t2) as winning_teams
-    FROM rounds r
-    WHERE r.status = 'completed'
-    ORDER BY r.completed_at DESC, r.id DESC
-    LIMIT ?
-  `).all(limit);
-}
-
-function completeRound(roundId, payload) {
-  const round = getRound(roundId);
-  if (!round) throw new Error('Round not found');
-  if (round.status !== 'teams') throw new Error('Round must have teams before completion.');
-  const activePlayers = getRoundPlayers(roundId).filter((p) => !p.dropped);
-  const teams = getRoundTeams(roundId);
-  if (!activePlayers.length || !teams.length) throw new Error('Round is missing players or teams.');
-  const aceContributors = activePlayers.filter((p) => p.ace_paid);
-  const validPlayerIds = new Set(activePlayers.map((p) => p.player_id));
-  const validTeamIds = new Set(teams.map((t) => t.id));
-  const acePlayerIds = (payload.acePlayerIds || []).filter((id) => validPlayerIds.has(id));
-  if (payload.aceResult === 'yes' && !acePlayerIds.length) throw new Error('Select at least one ace hitter.');
-  if (payload.ctpPlayerId && !validPlayerIds.has(payload.ctpPlayerId)) throw new Error('Invalid CTP winner.');
-  if (payload.winnerTeamId && !validTeamIds.has(payload.winnerTeamId)) throw new Error('Invalid winning team.');
-
-  const ctpPrize = activePlayers.filter((p) => p.ctp_paid).length;
-  const winnerPrize = activePlayers.filter((p) => p.payout_paid).length * 5;
-  const acePotBefore = getAcePot();
-  let acePotAfter = acePotBefore;
-  let acePayoutTotal = 0;
-
-  db.transaction(() => {
-    db.prepare('DELETE FROM round_aces WHERE round_id = ?').run(roundId);
-    db.prepare('DELETE FROM payouts WHERE round_id = ?').run(roundId);
-
-    if (payload.aceResult === 'yes') {
-      const share = acePotBefore / acePlayerIds.length;
-      acePayoutTotal = acePotBefore;
-      acePotAfter = 0;
-      acePlayerIds.forEach((playerId) => {
-        db.prepare('INSERT INTO round_aces (round_id, player_id) VALUES (?, ?)').run(roundId, playerId);
-        db.prepare('INSERT INTO payouts (round_id, type, player_id, amount) VALUES (?, ?, ?, ?)').run(roundId, 'ace', playerId, share);
-      });
-    } else {
-      acePotAfter = acePotBefore + aceContributors.length;
-    }
-
-    if (payload.ctpPlayerId) {
-      db.prepare('INSERT INTO payouts (round_id, type, player_id, amount) VALUES (?, ?, ?, ?)').run(roundId, 'ctp', payload.ctpPlayerId, ctpPrize);
-    }
-    if (payload.winnerTeamId) {
-      const teamPlayers = db.prepare(`
-        SELECT p.id FROM round_team_players rtp
-        JOIN round_players rp ON rp.id = rtp.round_player_id
-        JOIN players p ON p.id = rp.player_id
-        WHERE rtp.team_id = ?
-      `).all(payload.winnerTeamId);
-      teamPlayers.forEach((player) => {
-        db.prepare('INSERT INTO payouts (round_id, type, player_id, team_id, amount) VALUES (?, ?, ?, ?, ?)')
-          .run(roundId, 'winner', player.id, payload.winnerTeamId, teamPlayers.length ? winnerPrize / teamPlayers.length : 0);
-      });
-    }
-
-    db.prepare(`UPDATE rounds SET
-      status = 'completed',
-      ace_result = ?,
-      ace_pot_before = ?,
-      ace_pot_after = ?,
-      ace_payout_total = ?,
-      ctp_payout_total = ?,
-      winner_payout_total = ?,
-      completed_at = CURRENT_TIMESTAMP,
-      updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?`)
-      .run(payload.aceResult, acePotBefore, acePotAfter, acePayoutTotal, ctpPrize, winnerPrize, roundId);
-
-    setAcePot(acePotAfter);
-  })();
-}
-
 function cancelRound(roundId) {
   db.prepare('DELETE FROM rounds WHERE id = ? AND status != ?').run(roundId, 'completed');
 }
 
 module.exports = {
   getSetting, setSetting, getEligibleCtpHoles, setEligibleCtpHoles, getAcePot, setAcePot,
-  getUsers, findUserByCredentials, listPlayers, createPlayer, getOrCreatePlayer,
+  getUsers, findUserByCredentials, updateUserPin, listPlayers, createPlayer, getOrCreatePlayer,
   getActiveRound, getRound, createRound, getRoundPlayers, addPlayerToRound,
   updateRoundPlayer, removeRoundPlayer, recalcRound, setRoundStatus, setRoundCtpHole,
-  generateTeams, getRoundTeams, setManualTeams, completeRound, getStats, cancelRound,
-  listCompletedRounds, updateUserPin, resetTeams
+  generateTeams, getRoundTeams, setManualTeams, completeRound, correctCompletedRound,
+  getStats, cancelRound, listCompletedRounds, getRoundDetail, resetTeams,
+  exportRoundsCsv, exportPayoutsCsv
 };
