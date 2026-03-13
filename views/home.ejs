@@ -3,11 +3,39 @@
   <div>
     <div class="eyebrow">Current ACE Pot</div>
     <div class="money"><%= currency(acePot) %></div>
+    <p class="muted">Tonight: <strong><%= tonight.rounds_today %></strong> rounds · <strong><%= currency(tonight.greens_today) %></strong> greens collected</p>
   </div>
   <form method="post" action="/rounds">
     <button class="button primary large" type="submit">Start New Doubles Round</button>
   </form>
 </section>
+
+<section class="grid two">
+  <section class="card">
+    <h2>League Snapshot</h2>
+    <div class="stack small">
+      <div class="team-card"><div class="player-head"><strong>Total completed rounds</strong><span><%= totals.total_rounds %></span></div></div>
+      <div class="team-card"><div class="player-head"><strong>Total greens</strong><span><%= currency(totals.total_greens) %></span></div></div>
+      <div class="team-card"><div class="player-head"><strong>Total CTP payouts</strong><span><%= currency(totals.total_ctp_payouts) %></span></div></div>
+      <div class="team-card"><div class="player-head"><strong>Total winner payouts</strong><span><%= currency(totals.total_winner_payouts) %></span></div></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Quick Add Favorites</h2>
+    <% if (!recentPlayers.length) { %>
+      <p class="muted">No recent players yet.</p>
+    <% } else { %>
+      <div class="chip-grid">
+        <% recentPlayers.forEach((name) => { %>
+          <span class="pill"><%= name %></span>
+        <% }) %>
+      </div>
+      <p class="muted">These show up fast in the round signup search.</p>
+    <% } %>
+  </section>
+</section>
+
 <section class="card">
   <h2>Recent Completed Rounds</h2>
   <% if (!recentRounds.length) { %>
@@ -19,6 +47,7 @@
           <div class="player-head"><strong>Round #<%= round.id %></strong><span><%= round.completed_at || round.created_at %></span></div>
           <div>CTP hole: <strong><%= round.ctp_hole || '—' %></strong></div>
           <div>ACE payout: <strong><%= currency(round.ace_payout_total) %></strong> · CTP: <strong><%= currency(round.ctp_payout_total) %></strong> · Winners: <strong><%= currency(round.winner_payout_total) %></strong></div>
+          <div class="actions-row"><a class="button secondary" href="/rounds/<%= round.id %>/detail">View Details</a></div>
         </div>
       <% }) %>
     </div>

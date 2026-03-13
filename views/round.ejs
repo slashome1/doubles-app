@@ -15,6 +15,12 @@
 <section class="grid two">
   <section class="card">
     <h2>Signup</h2>
+    <form method="get" action="/rounds/<%= round.id %>" class="stack small">
+      <label>Search existing players
+        <input name="player_query" value="<%= playerQuery || '' %>" placeholder="Start typing a name" />
+      </label>
+      <button class="button ghost" type="submit">Filter Player List</button>
+    </form>
     <form method="post" action="/rounds/<%= round.id %>/players" class="stack">
       <label>Add existing player
         <select name="player_id">

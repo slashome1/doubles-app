@@ -34,6 +34,9 @@ It keeps the app small, fast, and easy to maintain:
 - end-of-round payouts for ace / CTP / winners
 - admin correction form for completed-round payouts
 - CSV export for rounds and payouts
+- home dashboard snapshot for league night totals
+- player search/filter on signup
+- admin audit log for round and settings changes
 - persistent running ACE pot across rounds
 - admin settings for CTP holes + ACE pot adjustment
 - admin stats dashboard

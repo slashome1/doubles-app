@@ -96,6 +96,15 @@ function initDb() {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      round_id INTEGER REFERENCES rounds(id) ON DELETE SET NULL,
+      actor_username TEXT,
+      action TEXT NOT NULL,
+      detail TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   const adminUsername = process.env.ADMIN_USERNAME || 'admin';

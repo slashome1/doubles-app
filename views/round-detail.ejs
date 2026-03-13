@@ -50,6 +50,23 @@
 
 <% if (currentUser.role === 'admin') { %>
 <section class="card">
+  <h2>Admin Audit Trail</h2>
+  <% if (!auditLog.length) { %>
+    <p class="muted">No audit history for this round yet.</p>
+  <% } else { %>
+    <div class="stack small">
+      <% auditLog.forEach((item) => { %>
+        <div class="team-card">
+          <div class="player-head"><strong><%= item.action %></strong><span><%= item.created_at %></span></div>
+          <div>Actor: <strong><%= item.actor_username || 'system' %></strong></div>
+          <% if (item.detail) { %><div><%= item.detail %></div><% } %>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+</section>
+
+<section class="card">
   <h2>Admin Payout Corrections</h2>
   <form method="post" action="/rounds/<%= round.id %>/correct-payouts" class="stack">
     <label>Ace result

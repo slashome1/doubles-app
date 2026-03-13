@@ -25,4 +25,22 @@
   </form>
   <p class="muted">Database: <code><%= dbPath %></code></p>
 </section>
+
+<section class="card">
+  <h2>Admin Audit Log</h2>
+  <% if (!auditLog.length) { %>
+    <p class="muted">No admin actions recorded yet.</p>
+  <% } else { %>
+    <div class="stack small">
+      <% auditLog.forEach((item) => { %>
+        <div class="team-card">
+          <div class="player-head"><strong><%= item.action %></strong><span><%= item.created_at %></span></div>
+          <div>Actor: <strong><%= item.actor_username || 'system' %></strong></div>
+          <% if (item.round_id) { %><div>Round: <strong>#<%= item.round_id %></strong></div><% } %>
+          <% if (item.detail) { %><div><%= item.detail %></div><% } %>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+</section>
 <%- include('partials/footer') %>

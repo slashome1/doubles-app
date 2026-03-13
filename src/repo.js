@@ -15,6 +15,18 @@ function setSetting(key, value) {
     ON CONFLICT(key) DO UPDATE SET value = excluded.value`).run(key, String(value));
 }
 
+function logAudit(action, detail = '', roundId = null, actorUsername = 'system') {
+  db.prepare('INSERT INTO audit_log (round_id, actor_username, action, detail) VALUES (?, ?, ?, ?)')
+    .run(roundId, actorUsername, action, detail);
+}
+
+function getAuditLog(limit = 100, roundId = null) {
+  if (roundId) {
+    return db.prepare('SELECT * FROM audit_log WHERE round_id = ? ORDER BY id DESC LIMIT ?').all(roundId, limit);
+  }
+  return db.prepare('SELECT * FROM audit_log ORDER BY id DESC LIMIT ?').all(limit);
+}
+
 function getEligibleCtpHoles() {
   return parseJson(getSetting('eligible_ctp_holes', '[]'));
 }
@@ -42,14 +54,16 @@ function findUserByCredentials(username, pin) {
   return { id: user.id, username: user.username, role: user.role };
 }
 
-function updateUserPin(username, pin) {
+function updateUserPin(username, pin, actorUsername = 'system') {
   if (!/^\d{4}$/.test(String(pin))) throw new Error('PIN must be exactly 4 digits.');
   const result = db.prepare('UPDATE users SET pin = ? WHERE username = ?').run(hashPin(String(pin)), username);
   if (!result.changes) throw new Error(`User not found: ${username}`);
+  logAudit('user.pin.updated', `Updated PIN for ${username}`, null, actorUsername);
 }
 
-function listPlayers() {
-  return db.prepare('SELECT * FROM players WHERE is_active = 1 ORDER BY LOWER(name) ASC').all();
+function listPlayers(query = '') {
+  const q = `%${String(query || '').trim().toLowerCase()}%`;
+  return db.prepare('SELECT * FROM players WHERE is_active = 1 AND LOWER(name) LIKE ? ORDER BY LOWER(name) ASC LIMIT 100').all(q);
 }
 
 function createPlayer(name, isMember) {
@@ -71,9 +85,10 @@ function getRound(roundId) {
   return db.prepare('SELECT * FROM rounds WHERE id = ?').get(roundId);
 }
 
-function createRound() {
+function createRound(actorUsername = 'system') {
   const acePot = getAcePot();
   const result = db.prepare('INSERT INTO rounds (status, ace_pot_before, ace_pot_after) VALUES (?,?,?)').run('signup', acePot, acePot);
+  logAudit('round.created', `Created round #${result.lastInsertRowid}`, result.lastInsertRowid, actorUsername);
   return getRound(result.lastInsertRowid);
 }
 
@@ -87,7 +102,7 @@ function getRoundPlayers(roundId) {
   `).all(roundId);
 }
 
-function addPlayerToRound(roundId, playerId, contributions) {
+function addPlayerToRound(roundId, playerId, contributions, actorUsername = 'system') {
   const round = getRound(roundId);
   if (!round || round.status === 'completed') throw new Error('Round is not editable.');
   const player = db.prepare('SELECT * FROM players WHERE id = ?').get(playerId);
@@ -100,9 +115,10 @@ function addPlayerToRound(roundId, playerId, contributions) {
     VALUES (?, ?, ?, ?, ?, ?, ?)`)
     .run(roundId, playerId, player.is_member, greens, contributions.ctp ? 1 : 0, contributions.ace ? 1 : 0, contributions.payout ? 1 : 0);
   recalcRound(roundId);
+  logAudit('round.player.added', `Added ${player.name}`, roundId, actorUsername);
 }
 
-function updateRoundPlayer(roundPlayerId, fields) {
+function updateRoundPlayer(roundPlayerId, fields, actorUsername = 'system') {
   const current = db.prepare('SELECT round_id FROM round_players WHERE id = ?').get(roundPlayerId);
   if (!current) throw new Error('Round player not found.');
   db.prepare(`UPDATE round_players SET
@@ -110,12 +126,16 @@ function updateRoundPlayer(roundPlayerId, fields) {
     WHERE id = ?`)
     .run(fields.is_member ? 1 : 0, fields.greens_fee, fields.ctp_paid ? 1 : 0, fields.ace_paid ? 1 : 0, fields.payout_paid ? 1 : 0, fields.dropped ? 1 : 0, roundPlayerId);
   recalcRound(current.round_id);
+  logAudit('round.player.updated', `Updated round_player_id ${roundPlayerId}`, current.round_id, actorUsername);
 }
 
-function removeRoundPlayer(roundPlayerId) {
+function removeRoundPlayer(roundPlayerId, actorUsername = 'system') {
   const row = db.prepare('SELECT round_id FROM round_players WHERE id = ?').get(roundPlayerId);
   db.prepare('DELETE FROM round_players WHERE id = ?').run(roundPlayerId);
-  if (row) recalcRound(row.round_id);
+  if (row) {
+    recalcRound(row.round_id);
+    logAudit('round.player.removed', `Removed round_player_id ${roundPlayerId}`, row.round_id, actorUsername);
+  }
 }
 
 function recalcRound(roundId) {
@@ -135,20 +155,22 @@ function setRoundStatus(roundId, status) {
   db.prepare('UPDATE rounds SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(status, roundId);
 }
 
-function setRoundCtpHole(roundId, hole) {
+function setRoundCtpHole(roundId, hole, actorUsername = 'system') {
   const round = getRound(roundId);
   if (!round) throw new Error('Round not found.');
   const nextStatus = round.status === 'signup' ? 'ready' : round.status;
   db.prepare('UPDATE rounds SET ctp_hole = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(hole, nextStatus, roundId);
+  logAudit('round.ctp_hole.updated', `CTP hole set to ${hole}`, roundId, actorUsername);
 }
 
 function clearTeams(roundId) {
   db.prepare('DELETE FROM round_teams WHERE round_id = ?').run(roundId);
 }
 
-function resetTeams(roundId) {
+function resetTeams(roundId, actorUsername = 'system') {
   clearTeams(roundId);
   db.prepare("UPDATE rounds SET status = 'ready', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(roundId);
+  logAudit('round.teams.reset', 'Cleared generated teams', roundId, actorUsername);
 }
 
 function shuffle(array) {
@@ -160,7 +182,7 @@ function shuffle(array) {
   return arr;
 }
 
-function generateTeams(roundId) {
+function generateTeams(roundId, actorUsername = 'system') {
   clearTeams(roundId);
   const players = getRoundPlayers(roundId).filter((p) => !p.dropped);
   if (players.length < 2) throw new Error('Need at least 2 active players');
@@ -182,6 +204,7 @@ function generateTeams(roundId) {
     attach.run(result.lastInsertRowid, a.id);
   }
   setRoundStatus(roundId, 'teams');
+  logAudit('round.teams.randomized', 'Randomized teams', roundId, actorUsername);
 }
 
 function getRoundTeams(roundId) {
@@ -198,7 +221,7 @@ function getRoundTeams(roundId) {
   `).all(roundId);
 }
 
-function setManualTeams(roundId, entries) {
+function setManualTeams(roundId, entries, actorUsername = 'system') {
   clearTeams(roundId);
   const createTeam = db.prepare('INSERT INTO round_teams (round_id, team_name, team_order, is_cali) VALUES (?, ?, ?, ?)');
   const attach = db.prepare('INSERT INTO round_team_players (team_id, round_player_id) VALUES (?, ?)');
@@ -209,6 +232,7 @@ function setManualTeams(roundId, entries) {
     entry.playerIds.forEach((roundPlayerId) => attach.run(result.lastInsertRowid, roundPlayerId));
   });
   setRoundStatus(roundId, 'teams');
+  logAudit('round.teams.manual', 'Applied manual teams', roundId, actorUsername);
 }
 
 function listCompletedRounds(limit = 50) {
@@ -253,7 +277,8 @@ function getRoundDetail(roundId) {
     WHERE ra.round_id = ?
     ORDER BY p.name ASC
   `).all(roundId);
-  return { round, players, teams, payouts, acePlayers };
+  const auditLog = getAuditLog(100, roundId);
+  return { round, players, teams, payouts, acePlayers, auditLog };
 }
 
 function applyRoundPayouts(roundId, payload) {
@@ -321,7 +346,7 @@ function applyRoundPayouts(roundId, payload) {
   return { acePotAfter };
 }
 
-function completeRound(roundId, payload) {
+function completeRound(roundId, payload, actorUsername = 'system') {
   const round = getRound(roundId);
   if (!round) throw new Error('Round not found');
   if (round.status !== 'teams') throw new Error('Round must have teams before completion.');
@@ -333,10 +358,11 @@ function completeRound(roundId, payload) {
       updated_at = CURRENT_TIMESTAMP
       WHERE id = ?`).run(roundId);
     setAcePot(acePotAfter);
+    logAudit('round.completed', 'Completed round and saved payouts', roundId, actorUsername);
   })();
 }
 
-function correctCompletedRound(roundId, payload) {
+function correctCompletedRound(roundId, payload, actorUsername = 'system') {
   const round = getRound(roundId);
   if (!round || round.status !== 'completed') throw new Error('Round must already be completed.');
   db.transaction(() => {
@@ -345,6 +371,7 @@ function correctCompletedRound(roundId, payload) {
     if (!currentActive || currentActive.id === roundId) {
       setAcePot(acePotAfter);
     }
+    logAudit('round.payouts.corrected', 'Corrected completed round payouts', roundId, actorUsername);
   })();
 }
 
@@ -359,9 +386,7 @@ function exportRoundsCsv() {
   `).all();
   const header = ['round_id','created_at','completed_at','ctp_hole','ace_result','ace_pot_before','ace_pot_after','ace_payout_total','ctp_payout_total','winner_payout_total','greens_total','ctp_total','payout_total','active_players'];
   const lines = [header.join(',')];
-  for (const row of rows) {
-    lines.push(header.map((key) => JSON.stringify(row[key] ?? '')).join(','));
-  }
+  for (const row of rows) lines.push(header.map((key) => JSON.stringify(row[key] ?? '')).join(','));
   return lines.join('\n');
 }
 
@@ -375,10 +400,27 @@ function exportPayoutsCsv() {
   `).all();
   const header = ['round_id','type','amount','player_name','team_name','created_at'];
   const lines = [header.join(',')];
-  for (const row of rows) {
-    lines.push(header.map((key) => JSON.stringify(row[key] ?? '')).join(','));
-  }
+  for (const row of rows) lines.push(header.map((key) => JSON.stringify(row[key] ?? '')).join(','));
   return lines.join('\n');
+}
+
+function getDashboard() {
+  const activeRound = getActiveRound();
+  const recentRounds = listCompletedRounds(8);
+  const totals = db.prepare(`
+    SELECT COUNT(*) as total_rounds,
+      COALESCE(SUM(greens_total),0) as total_greens,
+      COALESCE(SUM(ctp_payout_total),0) as total_ctp_payouts,
+      COALESCE(SUM(winner_payout_total),0) as total_winner_payouts
+    FROM rounds WHERE status = 'completed'
+  `).get();
+  const tonight = db.prepare(`
+    SELECT COUNT(*) as rounds_today,
+      COALESCE(SUM(greens_total),0) as greens_today
+    FROM rounds WHERE date(created_at, 'localtime') = date('now', 'localtime')
+  `).get();
+  const recentPlayers = db.prepare(`SELECT name FROM players WHERE is_active = 1 ORDER BY id DESC LIMIT 10`).all().map((r) => r.name);
+  return { activeRound, recentRounds, totals, tonight, recentPlayers, acePot: getAcePot() };
 }
 
 function getStats() {
@@ -423,8 +465,9 @@ function getStats() {
   return { totals, memberCounts, playerStats, payoutHistory, acePot: getAcePot() };
 }
 
-function cancelRound(roundId) {
+function cancelRound(roundId, actorUsername = 'system') {
   db.prepare('DELETE FROM rounds WHERE id = ? AND status != ?').run(roundId, 'completed');
+  logAudit('round.canceled', `Canceled unfinished round #${roundId}`, roundId, actorUsername);
 }
 
 module.exports = {
@@ -434,5 +477,5 @@ module.exports = {
   updateRoundPlayer, removeRoundPlayer, recalcRound, setRoundStatus, setRoundCtpHole,
   generateTeams, getRoundTeams, setManualTeams, completeRound, correctCompletedRound,
   getStats, cancelRound, listCompletedRounds, getRoundDetail, resetTeams,
-  exportRoundsCsv, exportPayoutsCsv
+  exportRoundsCsv, exportPayoutsCsv, getDashboard, getAuditLog, logAudit
 };

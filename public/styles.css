@@ -43,6 +43,7 @@ input, select, textarea { width:100%; padding:.85rem .95rem; border-radius:14px;
 .totals-grid div, .stat { text-align:center; }
 .totals-grid span { display:block; color:var(--muted); font-size:.85rem; }
 .plain-list { list-style:none; padding:0; margin:0; display:grid; gap:.5rem; }
+.chip-grid { display:flex; flex-wrap:wrap; gap:.5rem; }
 .table-wrap { overflow:auto; }
 table { width:100%; border-collapse: collapse; }
 th, td { text-align:left; padding:.7rem; border-bottom:1px solid var(--border); white-space:nowrap; }
