@@ -3,6 +3,7 @@
   <div>
     <div class="eyebrow">Round #<%= round.id %> · <%= round.status %></div>
     <div class="money">ACE Pot <%= currency(acePot) %></div>
+    <% if (round.status !== 'signup') { %><p class="muted">Includes this round’s ace contributions.</p><% } %>
     <% if (round.ctp_hole) { %><div class="pill ctp-pill">CTP Hole: <strong><%= round.ctp_hole %></strong></div><% } %>
   </div>
   <div class="totals-grid">
@@ -13,6 +14,7 @@
 </section>
 
 <section class="grid two">
+  <% if (round.status === 'signup') { %>
   <section class="card">
     <h2>Signup</h2>
     <form method="get" action="/rounds/<%= round.id %>" class="stack small">
@@ -44,6 +46,7 @@
       <button class="button primary" type="submit">Add Player</button>
     </form>
   </section>
+  <% } %>
 
   <section class="card">
     <h2>Players in Round</h2>

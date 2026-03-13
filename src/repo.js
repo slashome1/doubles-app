@@ -102,6 +102,19 @@ function getRoundPlayers(roundId) {
   `).all(roundId);
 }
 
+function getRoundDisplayedAcePot(roundId) {
+  const round = getRound(roundId);
+  if (!round) throw new Error('Round not found.');
+  const basePot = Number(round.ace_pot_before || getAcePot());
+  if (round.status === 'signup') return basePot;
+  const aceContribs = db.prepare(`
+    SELECT COALESCE(SUM(CASE WHEN ace_paid = 1 AND dropped = 0 THEN 1 ELSE 0 END), 0) as ace_count
+    FROM round_players
+    WHERE round_id = ?
+  `).get(roundId);
+  return basePot + Number(aceContribs.ace_count || 0);
+}
+
 function addPlayerToRound(roundId, playerId, contributions, actorUsername = 'system') {
   const round = getRound(roundId);
   if (!round || round.status === 'completed') throw new Error('Round is not editable.');
@@ -473,7 +486,7 @@ function cancelRound(roundId, actorUsername = 'system') {
 module.exports = {
   getSetting, setSetting, getEligibleCtpHoles, setEligibleCtpHoles, getAcePot, setAcePot,
   getUsers, findUserByCredentials, updateUserPin, listPlayers, createPlayer, getOrCreatePlayer,
-  getActiveRound, getRound, createRound, getRoundPlayers, addPlayerToRound,
+  getActiveRound, getRound, createRound, getRoundPlayers, getRoundDisplayedAcePot, addPlayerToRound,
   updateRoundPlayer, removeRoundPlayer, recalcRound, setRoundStatus, setRoundCtpHole,
   generateTeams, getRoundTeams, setManualTeams, completeRound, correctCompletedRound,
   getStats, cancelRound, listCompletedRounds, getRoundDetail, resetTeams,

@@ -91,7 +91,7 @@ app.get('/rounds/:id', requireAuth, (req, res) => {
     round,
     players,
     teams,
-    acePot: repo.getAcePot(),
+    acePot: repo.getRoundDisplayedAcePot(round.id),
     allPlayers: repo.listPlayers(playerQuery),
     eligibleHoles: repo.getEligibleCtpHoles(),
     playerQuery
