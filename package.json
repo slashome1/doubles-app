@@ -1,0 +1,17 @@
+{
+  "name": "doubles-app",
+  "version": "0.1.0",
+  "description": "Mobile-friendly disc golf doubles round manager",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "connect-sqlite3": "^0.9.16"
+  }
+}

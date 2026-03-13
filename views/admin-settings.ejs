@@ -1,0 +1,15 @@
+<%- include('partials/header') %>
+<section class="card">
+  <h2>Admin Settings</h2>
+  <form method="post" action="/admin/settings" class="stack">
+    <label>Eligible CTP holes (comma separated)
+      <input name="holes" value="<%= holes.join(', ') %>" placeholder="3, 7, 12, 17" />
+    </label>
+    <label>Current ACE pot
+      <input name="ace_pot" type="number" min="0" step="0.01" value="<%= acePot %>" />
+    </label>
+    <button class="button primary" type="submit">Save Settings</button>
+  </form>
+  <p class="muted">Database: <code><%= dbPath %></code></p>
+</section>
+<%- include('partials/footer') %>

@@ -1,0 +1,17 @@
+services:
+  doubles-app:
+    build: .
+    container_name: doubles-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      SESSION_SECRET: change-me
+      ADMIN_USERNAME: admin
+      ADMIN_PIN: 1234
+      USER_USERNAME: user
+      USER_PIN: 1111
+      DATA_DIR: /app/data
+    volumes:
+      - ./data:/app/data

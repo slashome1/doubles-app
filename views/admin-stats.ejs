@@ -1,0 +1,39 @@
+<%- include('partials/header') %>
+<section class="grid two">
+  <div class="card stat"><div class="eyebrow">Total rounds</div><div class="money"><%= stats.totals.total_rounds %></div></div>
+  <div class="card stat"><div class="eyebrow">Current ACE pot</div><div class="money"><%= currency(stats.acePot) %></div></div>
+  <div class="card stat"><div class="eyebrow">Greens fees collected</div><div class="money"><%= currency(stats.totals.total_greens) %></div></div>
+  <div class="card stat"><div class="eyebrow">CTP fund collected</div><div class="money"><%= currency(stats.totals.total_ctp) %></div></div>
+  <div class="card stat"><div class="eyebrow">Winner payout fund</div><div class="money"><%= currency(stats.totals.total_payout) %></div></div>
+  <div class="card stat"><div class="eyebrow">ACE payouts paid</div><div class="money"><%= currency(stats.totals.total_ace_payout) %></div></div>
+</section>
+<section class="card">
+  <h2>Payout History</h2>
+  <ul class="plain-list">
+    <% stats.payoutHistory.forEach((item) => { %>
+      <li><strong><%= item.type.toUpperCase() %></strong>: <%= currency(item.total) %></li>
+    <% }) %>
+  </ul>
+</section>
+<section class="card">
+  <h2>Player Stats</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Player</th><th>Rounds</th><th>Member</th><th>Non-member</th><th>Aces</th><th>CTP</th><th>Wins</th></tr></thead>
+      <tbody>
+        <% stats.playerStats.forEach((player) => { %>
+          <tr>
+            <td><%= player.name %></td>
+            <td><%= player.rounds_played || 0 %></td>
+            <td><%= player.member_rounds || 0 %></td>
+            <td><%= player.non_member_rounds || 0 %></td>
+            <td><%= player.ace_count || 0 %></td>
+            <td><%= player.ctp_wins || 0 %></td>
+            <td><%= player.round_wins || 0 %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</section>
+<%- include('partials/footer') %>

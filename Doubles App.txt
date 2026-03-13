@@ -1,0 +1,186 @@
+Build a simple, mobile-friendly web app called “Doubles App” for running local disc golf doubles rounds.
+
+High-level goal:
+Create a fast, easy-to-use app for live doubles signup, randomized team generation, round tracking, payout handling, and basic league statistics. The app should prioritize simplicity, clarity, and mobile usability over feature bloat.
+
+Important design freedom:
+You do NOT need to follow the exact screen-by-screen flow literally if a cleaner UX makes more sense. You may streamline page layout, combine steps, move buttons, simplify forms, and improve the workflow as long as the core functionality and business rules remain intact.
+
+Tech / deployment expectations:
+- Containerized with Docker
+- Suitable for self-hosting behind a reverse proxy
+- Intended to be hosted at: https://doubles.slashome.duckdns.org
+- Use a new GitHub repository named: `Doubles App`
+- Same GitHub account as the existing SlashBudget project
+- Prefer a simple stack that is easy to maintain
+- Favor local persistence with a lightweight database unless a better simple option is justified
+- App should survive restarts and retain history/statistics
+
+Core roles and auth:
+There are only 2 app roles:
+1. Admin
+2. Standard user
+
+Requirements:
+- Both roles should be protected by PIN login
+- After login, if there is an unfinished current round, load that round immediately instead of sending the user to a blank home page
+- Admin can manage system settings, round corrections, and stats
+- Standard user can run the normal round workflow but should not have access to admin-only settings/stats unless you believe a slightly different permission split is clearly better and still secure
+
+Main app flow:
+1. Home / landing page
+- Show current ACE pot prominently
+- Allow starting a new doubles round
+- If a round is already active, show/resume it
+
+2. Player signup for a round
+Need a simple flow to add players to the current round:
+- Show players signed up so far
+- Allow adding a player either:
+  - from previous players via dropdown/search
+  - as a brand new player
+- If player is new, ask whether they are a club member
+
+For each player, record contributions:
+- Greens fee:
+  - $0 for club members
+  - $8 for non-members
+- Optional contributions:
+  - CTP fund: $1
+  - Ace Pot: $1
+  - Payout: $5
+
+After adding a player, return to the round signup list so more players can be added.
+
+Need a clear “Start the Round!” action once signup is complete.
+
+3. CTP hole selection
+When the round starts:
+- Randomly select one CTP hole
+- Hole must be chosen only from admin-defined eligible CTP holes
+- Display the selected CTP hole clearly for the CTP flag
+- User confirms and continues
+
+4. Round financial summary before team randomization
+Show a summary including:
+- Current players
+- Their contributions
+- Current ACE pot
+- Current CTP payout total
+- Current winning-team payout total
+
+Then provide a “Randomize Teams” action.
+
+5. Team generation
+- Randomly group players into teams of 2
+- If one player is left over, mark them as “Cali”
+- Display team/group assignments clearly
+- Provide an “End Round” action
+
+6. End-of-round workflow
+When ending the round:
+First ask:
+- “Did anyone ace?”
+  - Yes
+  - No
+
+ACE rules:
+- If NO:
+  - Add $1 from every player who contributed to Ace Pot into the running ACE fund
+  - This ACE pot persists across rounds
+- If YES:
+  - Allow selecting one or more players who hit an ace
+  - Divide the current ACE pot evenly among selected ace hitters
+  - After payout, ACE payout flow is considered complete
+  - Reset or reduce the ACE pot appropriately based on the payout logic you implement; make the logic explicit and sensible
+
+Then ask:
+- “Who got CTP?”
+  - Select one player from the current round
+  - CTP payout = $1 for every player who paid into the CTP fund
+  - Show button text like: “Payout $X”
+
+Then ask:
+- “Who won the round?”
+  - Select the winning pair/team
+  - Winning payout = total payout fund collected from players who paid into payout
+  - Show button text like: “Payout $X”
+
+After payouts:
+- Mark round complete
+- Save all round results and statistics
+- Return to home/dashboard state
+
+Admin requirements:
+Admin area should include:
+1. CTP hole management
+- Configure which holes are eligible for random CTP selection
+
+2. Statistics page
+Track and display useful statistics across all rounds, including at minimum:
+- Total rounds played
+- Current ACE pot
+- Historical ACE payouts
+- Historical CTP payouts
+- Historical winner payouts
+- Player participation counts
+- Club member vs non-member counts
+- Total greens fees collected
+- Total payout money collected
+- Total CTP money collected
+- Player ace counts
+- Player CTP wins
+- Player round wins
+- Any other sensible summary stats you think are useful
+
+3. Current round management
+If a round is active, admin should be able to:
+- View the active round
+- Adjust players
+- Adjust contributions
+- Adjust generated groups/teams
+- Adjust payouts
+- Handle player dropouts after the round has started
+- Recalculate totals if needed
+- Cancel the current round entirely, effectively deleting that unfinished round
+
+General UX expectations:
+- Mobile-first
+- Very fast to use during in-person event signup
+- Minimal taps
+- Clear buttons and large touch targets
+- Keep important money totals visible
+- Avoid clutter
+- Make form flow intuitive
+- It is okay to combine or reorganize steps if the result is cleaner and more usable
+
+Data expectations:
+Persist and model at least:
+- Users/roles/PINs
+- Players
+- Club member status
+- Round state
+- Active round vs completed rounds
+- Player contributions per round
+- Team assignments
+- Selected CTP hole
+- Ace outcomes
+- CTP winner
+- Round winners
+- Running ACE pot
+- Historical payouts
+- Admin settings
+
+Implementation expectations:
+- Produce a complete working MVP, not just mockups
+- Include a sensible project structure
+- Include Dockerfile and docker-compose if appropriate
+- Include setup instructions
+- Include environment variable configuration where needed
+- Include seed/default admin and standard user PIN setup or an easy first-run config
+- Include validation and guardrails so round state cannot easily get corrupted
+- Make it easy to maintain and extend
+
+Please make reasonable product/engineering decisions where unspecified.
+If my requested workflow is awkward, improve it while preserving the intent and core rules.
+Prioritize clarity, reliability, simplicity, and mobile usability.

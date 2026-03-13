@@ -1,0 +1,11 @@
+<%- include('partials/header') %>
+<section class="hero card">
+  <div>
+    <div class="eyebrow">Current ACE Pot</div>
+    <div class="money"><%= currency(acePot) %></div>
+  </div>
+  <form method="post" action="/rounds">
+    <button class="button primary large" type="submit">Start New Doubles Round</button>
+  </form>
+</section>
+<%- include('partials/footer') %>

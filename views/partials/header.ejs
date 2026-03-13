@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Doubles App</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">Disc Golf Doubles</div>
+      <h1>Doubles App</h1>
+    </div>
+    <% if (currentUser) { %>
+      <div class="topbar-actions">
+        <span class="pill"><%= currentUser.username %> · <%= currentUser.role %></span>
+        <% if (currentUser.role === 'admin') { %>
+          <a class="button secondary" href="/admin/settings">Settings</a>
+          <a class="button secondary" href="/admin/stats">Stats</a>
+        <% } %>
+        <form method="post" action="/logout"><button class="button ghost" type="submit">Log out</button></form>
+      </div>
+    <% } %>
+  </header>
+  <% if (flash) { %><div class="flash"><%= flash %></div><% } %>
+  <main class="container">

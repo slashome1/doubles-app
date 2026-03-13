@@ -1,0 +1,18 @@
+<%- include('partials/header') %>
+<section class="card narrow">
+  <h2>PIN Login</h2>
+  <p class="muted">Quick entry for league night. Default accounts are documented in the README.</p>
+  <form method="post" action="/login" class="stack">
+    <label>Username
+      <input name="username" list="users" placeholder="admin or user" required />
+    </label>
+    <datalist id="users">
+      <% users.forEach((user) => { %><option value="<%= user.username %>"></option><% }) %>
+    </datalist>
+    <label>PIN
+      <input name="pin" inputmode="numeric" pattern="[0-9]*" maxlength="8" required />
+    </label>
+    <button class="button primary" type="submit">Enter App</button>
+  </form>
+</section>
+<%- include('partials/footer') %>
