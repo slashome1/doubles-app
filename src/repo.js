@@ -1,5 +1,5 @@
 const { db } = require('./db');
-const { verifyPin } = require('./auth');
+const { verifyPin, hashPin } = require('./auth');
 
 const parseJson = (value, fallback = []) => {
   try { return JSON.parse(value); } catch { return fallback; }
@@ -130,7 +130,21 @@ function setRoundStatus(roundId, status) {
 }
 
 function setRoundCtpHole(roundId, hole) {
-  db.prepare('UPDATE rounds SET ctp_hole = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(hole, 'ready', roundId);
+  const round = getRound(roundId);
+  if (!round) throw new Error('Round not found.');
+  const nextStatus = round.status === 'signup' ? 'ready' : round.status;
+  db.prepare('UPDATE rounds SET ctp_hole = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(hole, nextStatus, roundId);
+}
+
+function updateUserPin(username, pin) {
+  if (!/^\d{4}$/.test(String(pin))) throw new Error('PIN must be exactly 4 digits.');
+  const result = db.prepare('UPDATE users SET pin = ? WHERE username = ?').run(hashPin(String(pin)), username);
+  if (!result.changes) throw new Error(`User not found: ${username}`);
+}
+
+function resetTeams(roundId) {
+  clearTeams(roundId);
+  db.prepare("UPDATE rounds SET status = 'ready', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(roundId);
 }
 
 function clearTeams(roundId) {
@@ -341,5 +355,5 @@ module.exports = {
   getActiveRound, getRound, createRound, getRoundPlayers, addPlayerToRound,
   updateRoundPlayer, removeRoundPlayer, recalcRound, setRoundStatus, setRoundCtpHole,
   generateTeams, getRoundTeams, setManualTeams, completeRound, getStats, cancelRound,
-  listCompletedRounds
+  listCompletedRounds, updateUserPin, resetTeams
 };

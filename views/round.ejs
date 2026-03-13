@@ -160,6 +160,28 @@
 <% if (currentUser.role === 'admin' && round.status !== 'completed') { %>
 <section class="card">
   <h2>Admin Controls</h2>
+  <div class="grid two">
+    <form method="post" action="/rounds/<%= round.id %>/set-ctp-hole" class="stack">
+      <label>Set / correct CTP hole
+        <select name="ctp_hole" required>
+          <option value="">Pick hole</option>
+          <% eligibleHoles.forEach((hole) => { %>
+            <option value="<%= hole %>" <%= String(round.ctp_hole) === String(hole) ? 'selected' : '' %>><%= hole %></option>
+          <% }) %>
+        </select>
+      </label>
+      <button class="button secondary" type="submit">Save CTP Hole</button>
+    </form>
+
+    <form method="post" action="/rounds/<%= round.id %>/reset-teams" class="stack" onsubmit="return confirm('Clear current teams and move the round back to ready state?')">
+      <div>
+        <strong>Reset teams</strong>
+        <p class="muted">Use this if pairings need to be redone after edits or dropouts.</p>
+      </div>
+      <button class="button secondary" type="submit">Clear Teams / Rebuild</button>
+    </form>
+  </div>
+
   <form method="post" action="/rounds/<%= round.id %>/cancel" onsubmit="return confirm('Cancel and delete this unfinished round?')">
     <button class="button danger" type="submit">Cancel Current Round</button>
   </form>

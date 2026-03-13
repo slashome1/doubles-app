@@ -10,6 +10,19 @@
     </label>
     <button class="button primary" type="submit">Save Settings</button>
   </form>
+</section>
+
+<section class="card">
+  <h2>Login PINs</h2>
+  <form method="post" action="/admin/users/pins" class="stack">
+    <label>Admin PIN
+      <input name="admin_pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="0815" required />
+    </label>
+    <label>User PIN
+      <input name="user_pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="9020" required />
+    </label>
+    <button class="button primary" type="submit">Update PINs</button>
+  </form>
   <p class="muted">Database: <code><%= dbPath %></code></p>
 </section>
 <%- include('partials/footer') %>

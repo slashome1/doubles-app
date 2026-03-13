@@ -57,8 +57,8 @@ This rule is explicit, simple, and easy to explain during league play.
 
 Change these for production.
 
-- Admin: `admin` / `1234`
-- User: `user` / `1111`
+- Admin: `admin` / `0815`
+- User: `user` / `9020`
 
 ## Local run
 

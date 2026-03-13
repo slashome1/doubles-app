@@ -179,6 +179,39 @@ app.post('/rounds/:id/manual-teams', requireAdmin, (req, res) => {
   res.redirect(`/rounds/${req.params.id}`);
 });
 
+app.post('/rounds/:id/set-ctp-hole', requireAdmin, (req, res) => {
+  try {
+    const hole = String(req.body.ctp_hole || '').trim();
+    if (!hole) throw new Error('Pick a CTP hole.');
+    repo.setRoundCtpHole(Number(req.params.id), hole);
+    setFlash(req, `CTP hole set to ${hole}.`);
+  } catch (error) {
+    setFlash(req, error.message);
+  }
+  res.redirect(`/rounds/${req.params.id}`);
+});
+
+app.post('/rounds/:id/reset-teams', requireAdmin, (req, res) => {
+  try {
+    repo.resetTeams(Number(req.params.id));
+    setFlash(req, 'Teams cleared. Round moved back to ready state.');
+  } catch (error) {
+    setFlash(req, error.message);
+  }
+  res.redirect(`/rounds/${req.params.id}`);
+});
+
+app.post('/admin/users/pins', requireAdmin, (req, res) => {
+  try {
+    repo.updateUserPin('admin', req.body.admin_pin);
+    repo.updateUserPin('user', req.body.user_pin);
+    setFlash(req, 'Admin and user PINs updated.');
+  } catch (error) {
+    setFlash(req, error.message);
+  }
+  res.redirect('/admin/settings');
+});
+
 app.post('/rounds/:id/complete', requireAuth, (req, res) => {
   const roundId = Number(req.params.id);
   const acePlayerIds = Array.isArray(req.body.ace_player_ids)
