@@ -5,9 +5,16 @@
     <div class="money"><%= currency(acePot) %></div>
     <p class="muted">Tonight: <strong><%= tonight.rounds_today %></strong> rounds · <strong><%= currency(tonight.greens_today) %></strong> greens collected</p>
   </div>
-  <form method="post" action="/rounds">
-    <button class="button primary large" type="submit">Start New Doubles Round</button>
-  </form>
+  <% if (currentUser.role !== 'admin') { %>
+    <form method="post" action="/rounds">
+      <button class="button primary large" type="submit">Start New Doubles Round</button>
+    </form>
+  <% } else { %>
+    <div class="team-card">
+      <strong>Admin mode</strong>
+      <p class="muted">Use this account for stats, settings, corrections, and cleanup only.</p>
+    </div>
+  <% } %>
 </section>
 
 <section class="grid two">

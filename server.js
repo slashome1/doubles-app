@@ -68,6 +68,10 @@ app.post('/login', (req, res) => {
 app.post('/logout', (req, res) => req.session.destroy(() => res.redirect('/login')));
 
 app.post('/rounds', requireAuth, (req, res) => {
+  if (req.session.user.role === 'admin') {
+    setFlash(req, 'Admins cannot start new rounds. Use the standard user account for round operations.');
+    return res.redirect('/');
+  }
   const activeRound = repo.getActiveRound();
   if (activeRound) return res.redirect(`/rounds/${activeRound.id}`);
   const round = repo.createRound(req.session.user.username);
