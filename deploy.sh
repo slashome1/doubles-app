@@ -35,7 +35,7 @@ if [[ "$BRANCH" != "main" ]]; then
 fi
 
 echo "==> Pushing latest code to GitHub"
-git push origin main
+git push "https://${GITHUB_TOKEN}@github.com/slashome1/doubles-app.git" main
 
 echo "==> Deploying on ${SSH_HOST_ALIAS}:${REMOTE_APP_DIR}"
 ssh -F "$SSH_CONFIG" "$SSH_HOST_ALIAS" "bash -s" <<REMOTE
