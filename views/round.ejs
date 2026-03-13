@@ -19,13 +19,13 @@
 
 <% if (showPlayersTab || round.status !== 'signup') { %>
 <section class="card">
-  <div class="actions-row">
+  <div class="tab-row">
     <% if (round.status === 'signup') { %>
-      <a class="button <%= currentView === 'signup' ? 'primary' : 'secondary' %>" href="/rounds/<%= round.id %>?view=signup">Signup</a>
+      <a class="button <%= currentView === 'signup' ? 'primary' : 'secondary' %> tab-button" href="/rounds/<%= round.id %>?view=signup">Signup</a>
     <% } %>
-    <a class="button <%= currentView === 'players' ? 'primary' : 'secondary' %>" href="/rounds/<%= round.id %>?view=players">Players</a>
+    <a class="button <%= currentView === 'players' ? 'primary' : 'secondary' %> tab-button" href="/rounds/<%= round.id %>?view=players">Players</a>
     <% if (round.status !== 'signup') { %>
-      <a class="button <%= currentView === 'teams' ? 'primary' : 'secondary' %>" href="/rounds/<%= round.id %>?view=teams">Round</a>
+      <a class="button <%= currentView === 'teams' ? 'primary' : 'secondary' %> tab-button" href="/rounds/<%= round.id %>?view=teams">Round</a>
     <% } %>
   </div>
 </section>
@@ -39,29 +39,29 @@
       <label>Search existing players
         <input name="player_query" value="<%= playerQuery || '' %>" placeholder="Start typing a name" />
       </label>
-      <button class="button ghost" type="submit">Filter Player List</button>
+      <button class="button ghost big-touch" type="submit">Filter Player List</button>
     </form>
     <form method="post" action="/rounds/<%= round.id %>/players" class="stack">
       <label>Add existing player
-        <select name="player_id">
+        <select name="player_id" class="big-touch">
           <option value="">Pick previous player</option>
           <% allPlayers.forEach((player) => { %>
             <option value="<%= player.id %>"><%= player.name %> <%= player.is_member ? '(member)' : '(guest)' %></option>
           <% }) %>
         </select>
       </label>
-      <label class="inline"><input type="radio" name="player_mode" value="existing" checked /> Use existing</label>
-      <label class="inline"><input type="radio" name="player_mode" value="new" /> Create new</label>
+      <label class="inline touch-option"><input type="radio" name="player_mode" value="existing" checked /> Use existing</label>
+      <label class="inline touch-option"><input type="radio" name="player_mode" value="new" /> Create new</label>
       <label>New player name
         <input name="new_player_name" placeholder="Only needed for brand new players" />
       </label>
-      <label class="inline"><input type="checkbox" name="is_member" /> Club member</label>
+      <label class="inline touch-option"><input type="checkbox" name="is_member" /> Club member</label>
       <div class="checkbox-grid">
-        <label class="inline"><input type="checkbox" name="ctp_paid" checked /> CTP $1</label>
-        <label class="inline"><input type="checkbox" name="ace_paid" checked /> Ace $1</label>
-        <label class="inline"><input type="checkbox" name="payout_paid" checked /> Payout $5</label>
+        <label class="inline touch-option"><input type="checkbox" name="ctp_paid" checked /> CTP $1</label>
+        <label class="inline touch-option"><input type="checkbox" name="ace_paid" checked /> Ace $1</label>
+        <label class="inline touch-option"><input type="checkbox" name="payout_paid" checked /> Payout $5</label>
       </div>
-      <button class="button primary" type="submit">Add Player</button>
+      <button class="button primary large" type="submit">Add Player</button>
     </form>
   </section>
   <% } %>
@@ -75,24 +75,24 @@
         <form method="post" action="/round-players/<%= player.id %>/update" class="player-card">
           <div class="player-head"><strong><%= player.name %></strong><span><%= player.dropped ? 'Dropped' : (player.is_member ? 'Member' : 'Guest') %></span></div>
           <div class="checkbox-grid compact">
-            <label class="inline"><input type="checkbox" name="is_member" <%= player.is_member ? 'checked' : '' %> /> Member</label>
-            <label class="inline"><input type="checkbox" name="ctp_paid" <%= player.ctp_paid ? 'checked' : '' %> /> CTP</label>
-            <label class="inline"><input type="checkbox" name="ace_paid" <%= player.ace_paid ? 'checked' : '' %> /> Ace</label>
-            <label class="inline"><input type="checkbox" name="payout_paid" <%= player.payout_paid ? 'checked' : '' %> /> Payout</label>
-            <label class="inline"><input type="checkbox" name="dropped" <%= player.dropped ? 'checked' : '' %> /> Dropped</label>
+            <label class="inline touch-option"><input type="checkbox" name="is_member" <%= player.is_member ? 'checked' : '' %> /> Member</label>
+            <label class="inline touch-option"><input type="checkbox" name="ctp_paid" <%= player.ctp_paid ? 'checked' : '' %> /> CTP</label>
+            <label class="inline touch-option"><input type="checkbox" name="ace_paid" <%= player.ace_paid ? 'checked' : '' %> /> Ace</label>
+            <label class="inline touch-option"><input type="checkbox" name="payout_paid" <%= player.payout_paid ? 'checked' : '' %> /> Payout</label>
+            <label class="inline touch-option"><input type="checkbox" name="dropped" <%= player.dropped ? 'checked' : '' %> /> Dropped</label>
           </div>
           <label>Greens fee
             <input type="number" name="greens_fee" min="0" step="0.01" value="<%= player.greens_fee %>" />
           </label>
           <div class="actions-row">
-            <button class="button secondary" type="submit">Save</button>
-        </form>
-            <% if (currentUser.role === 'admin') { %>
-              <form method="post" action="/round-players/<%= player.id %>/delete" onsubmit="return confirm('Remove this player from the round?')">
-                <button class="button danger" type="submit">Remove</button>
-              </form>
-            <% } %>
+            <button class="button secondary big-touch" type="submit">Save</button>
           </div>
+        </form>
+        <% if (currentUser.role === 'admin') { %>
+          <form method="post" action="/round-players/<%= player.id %>/delete" onsubmit="return confirm('Remove this player from the round?')">
+            <button class="button danger big-touch" type="submit">Remove</button>
+          </form>
+        <% } %>
       <% }) %>
     </div>
   </section>
@@ -144,7 +144,7 @@
         <label>Manual teams (one team per line, comma separated names)
           <textarea name="teams" rows="5" placeholder="Alice, Bob&#10;Chris"></textarea>
         </label>
-        <button class="button secondary" type="submit">Apply Manual Teams</button>
+        <button class="button secondary big-touch" type="submit">Apply Manual Teams</button>
       </form>
     <% } %>
   </section>
@@ -152,42 +152,68 @@
 </section>
 <% } %>
 
-<% if (round.status === 'teams') { %>
+<% if (round.status === 'teams' && currentView !== 'players') { %>
 <section class="card">
-  <h2>End Round & Payouts</h2>
+  <h2>Finish Round</h2>
+  <p class="muted">When the round is done, tap below to record ace / CTP / winner payouts.</p>
+  <button class="button primary large" type="button" onclick="document.getElementById('complete-round-panel').hidden = false; this.hidden = true;">Complete Round</button>
+</section>
+
+<section class="card" id="complete-round-panel" hidden>
+  <h2>Round Results</h2>
   <form method="post" action="/rounds/<%= round.id %>/complete" class="stack">
     <label>Ace result
-      <select name="ace_result" required>
+      <select name="ace_result" id="ace_result" class="big-touch" required>
         <option value="no">No ace</option>
-        <option value="yes">One or more aces</option>
+        <option value="yes">Ace hit</option>
       </select>
     </label>
-    <label>Ace hitter(s)
-      <select name="ace_player_ids" multiple size="4">
-        <% players.filter(p => !p.dropped).forEach((player) => { %>
-          <option value="<%= player.player_id %>"><%= player.name %></option>
+
+    <div id="ace_hitters_group" hidden>
+      <label>Ace player(s)</label>
+      <div class="stack small">
+        <% activePlayers.forEach((player) => { %>
+          <label class="inline touch-option selector-card"><input type="checkbox" name="ace_player_ids" value="<%= player.player_id %>" /> <span><%= player.name %></span></label>
         <% }) %>
-      </select>
-    </label>
+      </div>
+    </div>
+
     <label>Who got CTP? (Payout <%= currency(round.ctp_total) %>)
-      <select name="ctp_player_id">
+      <select name="ctp_player_id" class="big-touch">
         <option value="">No CTP winner</option>
-        <% players.filter(p => !p.dropped).forEach((player) => { %>
+        <% activePlayers.forEach((player) => { %>
           <option value="<%= player.player_id %>"><%= player.name %></option>
         <% }) %>
       </select>
     </label>
     <label>Winning team (Payout <%= currency(round.payout_total) %>)
-      <select name="winner_team_id">
+      <select name="winner_team_id" class="big-touch">
         <option value="">No winner selected</option>
         <% teams.forEach((team) => { %>
           <option value="<%= team.id %>"><%= team.team_name %> — <%= team.player_names %></option>
         <% }) %>
       </select>
     </label>
-    <button class="button primary large" type="submit">Complete Round</button>
+    <button class="button primary large" type="submit">Save Round Results</button>
   </form>
 </section>
+
+<script>
+  (() => {
+    const aceResult = document.getElementById('ace_result');
+    const aceGroup = document.getElementById('ace_hitters_group');
+    if (!aceResult || !aceGroup) return;
+    const syncAce = () => {
+      const show = aceResult.value === 'yes';
+      aceGroup.hidden = !show;
+      aceGroup.querySelectorAll('input[type="checkbox"]').forEach((el) => {
+        if (!show) el.checked = false;
+      });
+    };
+    aceResult.addEventListener('change', syncAce);
+    syncAce();
+  })();
+</script>
 <% } %>
 
 <% if (currentUser.role === 'admin' && round.status !== 'completed') { %>
@@ -196,14 +222,14 @@
   <div class="grid two">
     <form method="post" action="/rounds/<%= round.id %>/set-ctp-hole" class="stack">
       <label>Set / correct CTP hole
-        <select name="ctp_hole" required>
+        <select name="ctp_hole" class="big-touch" required>
           <option value="">Pick hole</option>
           <% eligibleHoles.forEach((hole) => { %>
             <option value="<%= hole %>" <%= String(round.ctp_hole) === String(hole) ? 'selected' : '' %>><%= hole %></option>
           <% }) %>
         </select>
       </label>
-      <button class="button secondary" type="submit">Save CTP Hole</button>
+      <button class="button secondary big-touch" type="submit">Save CTP Hole</button>
     </form>
 
     <form method="post" action="/rounds/<%= round.id %>/reset-teams" class="stack" onsubmit="return confirm('Clear current teams and move the round back to ready state?')">
@@ -211,12 +237,12 @@
         <strong>Reset teams</strong>
         <p class="muted">Use this if pairings need to be redone after edits or dropouts.</p>
       </div>
-      <button class="button secondary" type="submit">Clear Teams / Rebuild</button>
+      <button class="button secondary big-touch" type="submit">Clear Teams / Rebuild</button>
     </form>
   </div>
 
   <form method="post" action="/rounds/<%= round.id %>/cancel" onsubmit="return confirm('Cancel and delete this unfinished round?')">
-    <button class="button danger" type="submit">Cancel Current Round</button>
+    <button class="button danger large" type="submit">Cancel Current Round</button>
   </form>
 </section>
 <% } %>
