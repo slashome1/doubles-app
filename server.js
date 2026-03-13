@@ -126,15 +126,26 @@ app.post('/rounds/:id/players', requireAuth, (req, res) => {
 
 app.post('/round-players/:id/update', requireAuth, (req, res) => {
   try {
+    const current = repo.getRoundPlayers(Number(req.body.round_id || 0)).find((p) => p.id === Number(req.params.id));
     repo.updateRoundPlayer(Number(req.params.id), {
       is_member: req.body.is_member === 'on',
       greens_fee: Number(req.body.greens_fee || 0),
       ctp_paid: req.body.ctp_paid === 'on',
       ace_paid: req.body.ace_paid === 'on',
       payout_paid: req.body.payout_paid === 'on',
-      dropped: req.body.dropped === 'on'
+      dropped: current ? current.dropped : false
     }, req.session.user.username);
     setFlash(req, 'Player entry updated.');
+  } catch (error) {
+    setFlash(req, error.message);
+  }
+  res.redirect(back(req));
+});
+
+app.post('/round-players/:id/drop-toggle', requireAuth, (req, res) => {
+  try {
+    repo.toggleDropped(Number(req.params.id), req.session.user.username);
+    setFlash(req, 'Player drop status updated. Contribution money stays in the round by default.');
   } catch (error) {
     setFlash(req, error.message);
   }

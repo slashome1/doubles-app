@@ -72,27 +72,34 @@
     <% if (!players.length) { %><p class="muted">Nobody signed up yet.</p><% } %>
     <div class="stack small">
       <% players.forEach((player) => { %>
-        <form method="post" action="/round-players/<%= player.id %>/update" class="player-card">
-          <div class="player-head"><strong><%= player.name %></strong><span><%= player.dropped ? 'Dropped' : (player.is_member ? 'Member' : 'Guest') %></span></div>
-          <div class="checkbox-grid compact">
-            <label class="inline touch-option"><input type="checkbox" name="is_member" <%= player.is_member ? 'checked' : '' %> /> Member</label>
-            <label class="inline touch-option"><input type="checkbox" name="ctp_paid" <%= player.ctp_paid ? 'checked' : '' %> /> CTP</label>
-            <label class="inline touch-option"><input type="checkbox" name="ace_paid" <%= player.ace_paid ? 'checked' : '' %> /> Ace</label>
-            <label class="inline touch-option"><input type="checkbox" name="payout_paid" <%= player.payout_paid ? 'checked' : '' %> /> Payout</label>
-            <label class="inline touch-option"><input type="checkbox" name="dropped" <%= player.dropped ? 'checked' : '' %> /> Dropped</label>
-          </div>
-          <label>Greens fee
-            <input type="number" name="greens_fee" min="0" step="0.01" value="<%= player.greens_fee %>" />
-          </label>
-          <div class="actions-row">
-            <button class="button secondary big-touch" type="submit">Save</button>
-          </div>
-        </form>
-        <% if (currentUser.role === 'admin') { %>
-          <form method="post" action="/round-players/<%= player.id %>/delete" onsubmit="return confirm('Remove this player from the round?')">
-            <button class="button danger big-touch" type="submit">Remove</button>
+        <div class="player-card">
+          <form method="post" action="/round-players/<%= player.id %>/update" class="stack">
+            <input type="hidden" name="round_id" value="<%= round.id %>" />
+            <div class="player-head"><strong><%= player.name %></strong><span><%= player.dropped ? 'Dropped / Forfeit kept' : (player.is_member ? 'Member' : 'Guest') %></span></div>
+            <div class="checkbox-grid compact">
+              <label class="inline touch-option"><input type="checkbox" name="is_member" <%= player.is_member ? 'checked' : '' %> /> Member</label>
+              <label class="inline touch-option"><input type="checkbox" name="ctp_paid" <%= player.ctp_paid ? 'checked' : '' %> /> CTP</label>
+              <label class="inline touch-option"><input type="checkbox" name="ace_paid" <%= player.ace_paid ? 'checked' : '' %> /> Ace</label>
+              <label class="inline touch-option"><input type="checkbox" name="payout_paid" <%= player.payout_paid ? 'checked' : '' %> /> Payout</label>
+            </div>
+            <label>Greens fee
+              <input type="number" name="greens_fee" min="0" step="0.01" value="<%= player.greens_fee %>" />
+            </label>
+            <div class="actions-row">
+              <button class="button secondary big-touch" type="submit">Save</button>
+            </div>
           </form>
-        <% } %>
+          <div class="actions-row">
+            <form method="post" action="/round-players/<%= player.id %>/drop-toggle" onsubmit="return confirm('<%= player.dropped ? 'Restore this player to active status?' : 'Drop this player? Their money will stay in the round as a forfeit.' %>')">
+              <button class="button <%= player.dropped ? 'secondary' : 'danger' %> big-touch" type="submit"><%= player.dropped ? 'Restore Player' : 'Drop Player' %></button>
+            </form>
+            <% if (currentUser.role === 'admin') { %>
+              <form method="post" action="/round-players/<%= player.id %>/delete" onsubmit="return confirm('Remove this player from the round?')">
+                <button class="button danger big-touch" type="submit">Remove</button>
+              </form>
+            <% } %>
+          </div>
+        </div>
       <% }) %>
     </div>
   </section>

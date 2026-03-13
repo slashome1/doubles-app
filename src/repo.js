@@ -108,7 +108,7 @@ function getRoundDisplayedAcePot(roundId) {
   const basePot = Number(round.ace_pot_before || getAcePot());
   if (round.status === 'signup') return basePot;
   const aceContribs = db.prepare(`
-    SELECT COALESCE(SUM(CASE WHEN ace_paid = 1 AND dropped = 0 THEN 1 ELSE 0 END), 0) as ace_count
+    SELECT COALESCE(SUM(CASE WHEN ace_paid = 1 THEN 1 ELSE 0 END), 0) as ace_count
     FROM round_players
     WHERE round_id = ?
   `).get(roundId);
@@ -142,6 +142,15 @@ function updateRoundPlayer(roundPlayerId, fields, actorUsername = 'system') {
   logAudit('round.player.updated', `Updated round_player_id ${roundPlayerId}`, current.round_id, actorUsername);
 }
 
+function toggleDropped(roundPlayerId, actorUsername = 'system') {
+  const row = db.prepare('SELECT rp.round_id, rp.dropped, p.name FROM round_players rp JOIN players p ON p.id = rp.player_id WHERE rp.id = ?').get(roundPlayerId);
+  if (!row) throw new Error('Round player not found.');
+  const nextDropped = row.dropped ? 0 : 1;
+  db.prepare('UPDATE round_players SET dropped = ? WHERE id = ?').run(nextDropped, roundPlayerId);
+  recalcRound(row.round_id);
+  logAudit(nextDropped ? 'round.player.dropped' : 'round.player.restored', `${nextDropped ? 'Dropped' : 'Restored'} ${row.name}`, row.round_id, actorUsername);
+}
+
 function removeRoundPlayer(roundPlayerId, actorUsername = 'system') {
   const row = db.prepare('SELECT round_id FROM round_players WHERE id = ?').get(roundPlayerId);
   db.prepare('DELETE FROM round_players WHERE id = ?').run(roundPlayerId);
@@ -158,7 +167,7 @@ function recalcRound(roundId) {
       COALESCE(SUM(CASE WHEN ctp_paid = 1 THEN 1 ELSE 0 END), 0) as ctp_total,
       COALESCE(SUM(CASE WHEN payout_paid = 1 THEN 5 ELSE 0 END), 0) as payout_total
     FROM round_players
-    WHERE round_id = ? AND dropped = 0
+    WHERE round_id = ?
   `).get(roundId);
   db.prepare(`UPDATE rounds SET greens_total = ?, ctp_total = ?, payout_total = ?, ctp_payout_total = ?, winner_payout_total = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
     .run(totals.greens_total, totals.ctp_total, totals.payout_total, totals.ctp_total, totals.payout_total, roundId);
@@ -487,7 +496,7 @@ module.exports = {
   getSetting, setSetting, getEligibleCtpHoles, setEligibleCtpHoles, getAcePot, setAcePot,
   getUsers, findUserByCredentials, updateUserPin, listPlayers, createPlayer, getOrCreatePlayer,
   getActiveRound, getRound, createRound, getRoundPlayers, getRoundDisplayedAcePot, addPlayerToRound,
-  updateRoundPlayer, removeRoundPlayer, recalcRound, setRoundStatus, setRoundCtpHole,
+  updateRoundPlayer, toggleDropped, removeRoundPlayer, recalcRound, setRoundStatus, setRoundCtpHole,
   generateTeams, getRoundTeams, setManualTeams, completeRound, correctCompletedRound,
   getStats, cancelRound, listCompletedRounds, getRoundDetail, resetTeams,
   exportRoundsCsv, exportPayoutsCsv, getDashboard, getAuditLog, logAudit
