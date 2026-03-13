@@ -6,6 +6,8 @@
   <div class="card stat"><div class="eyebrow">CTP fund collected</div><div class="money"><%= currency(stats.totals.total_ctp) %></div></div>
   <div class="card stat"><div class="eyebrow">Winner payout fund</div><div class="money"><%= currency(stats.totals.total_payout) %></div></div>
   <div class="card stat"><div class="eyebrow">ACE payouts paid</div><div class="money"><%= currency(stats.totals.total_ace_payout) %></div></div>
+  <div class="card stat"><div class="eyebrow">Member entries</div><div class="money"><%= stats.memberCounts.member_entries || 0 %></div></div>
+  <div class="card stat"><div class="eyebrow">Non-member entries</div><div class="money"><%= stats.memberCounts.non_member_entries || 0 %></div></div>
 </section>
 <section class="card">
   <h2>Payout History</h2>

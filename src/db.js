@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const Database = require('better-sqlite3');
+const { hashPin } = require('./auth');
 
 const dataDir = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
 fs.mkdirSync(dataDir, { recursive: true });
@@ -97,13 +98,24 @@ function initDb() {
     );
   `);
 
+  const adminUsername = process.env.ADMIN_USERNAME || 'admin';
+  const userUsername = process.env.USER_USERNAME || 'user';
+  const adminPin = process.env.ADMIN_PIN || '1234';
+  const userPin = process.env.USER_PIN || '1111';
+
   const insertUser = db.prepare('INSERT OR IGNORE INTO users (username, pin, role) VALUES (?, ?, ?)');
-  insertUser.run(process.env.ADMIN_USERNAME || 'admin', process.env.ADMIN_PIN || '1234', 'admin');
-  insertUser.run(process.env.USER_USERNAME || 'user', process.env.USER_PIN || '1111', 'user');
+  insertUser.run(adminUsername, hashPin(adminPin), 'admin');
+  insertUser.run(userUsername, hashPin(userPin), 'user');
 
   const seedSettings = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
   seedSettings.run('eligible_ctp_holes', JSON.stringify(['3', '7', '12', '17']));
   seedSettings.run('ace_pot', '0');
+
+  const legacyUsers = db.prepare("SELECT id, pin FROM users WHERE pin NOT LIKE 'scrypt:%'").all();
+  const updateUser = db.prepare('UPDATE users SET pin = ? WHERE id = ?');
+  for (const user of legacyUsers) {
+    updateUser.run(hashPin(user.pin), user.id);
+  }
 }
 
 module.exports = { db, initDb, dbPath };

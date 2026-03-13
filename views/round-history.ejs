@@ -1,0 +1,21 @@
+<%- include('partials/header') %>
+<section class="card">
+  <h2>Completed Round History</h2>
+  <% if (!rounds.length) { %>
+    <p class="muted">No completed rounds yet.</p>
+  <% } else { %>
+    <div class="stack small">
+      <% rounds.forEach((round) => { %>
+        <div class="team-card">
+          <div class="player-head"><strong>Round #<%= round.id %></strong><span><%= round.completed_at || round.created_at %></span></div>
+          <div>CTP hole: <strong><%= round.ctp_hole || '—' %></strong></div>
+          <div>ACE result: <strong><%= round.ace_result || '—' %></strong> · ACE pot before: <strong><%= currency(round.ace_pot_before) %></strong> · after: <strong><%= currency(round.ace_pot_after) %></strong></div>
+          <div>Payouts — ACE: <strong><%= currency(round.ace_payout_total) %></strong>, CTP: <strong><%= currency(round.ctp_payout_total) %></strong>, Winners: <strong><%= currency(round.winner_payout_total) %></strong></div>
+          <div>CTP winner(s): <strong><%= round.ctp_winner_names || '—' %></strong></div>
+          <div>Winning team(s): <strong><%= round.winning_teams || '—' %></strong></div>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+</section>
+<%- include('partials/footer') %>

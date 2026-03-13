@@ -22,23 +22,28 @@ It keeps the app small, fast, and easy to maintain:
 ## Features in this MVP
 
 - Admin + standard user PIN login
-- Auto-resume unfinished round after login
-- Start a round and add players fast
-- Reuse previous players or create new ones
-- Club member vs guest handling
-- Greens / CTP / Ace / payout contributions per player
-- Random CTP hole selection from admin-approved holes
-- Team randomization with Cali support for odd player counts
-- End-of-round payouts for ace / CTP / winners
-- Persistent running ACE pot across rounds
-- Admin settings for CTP holes + ACE pot adjustment
-- Admin stats dashboard
-- Admin round correction basics:
+- auto-resume unfinished round after login
+- start a round and add players fast
+- reuse previous players or create new ones
+- club member vs guest handling
+- greens / CTP / Ace / payout contributions per player
+- random CTP hole selection from admin-approved holes
+- team randomization with Cali support
+- completed round history page
+- end-of-round payouts for ace / CTP / winners
+- persistent running ACE pot across rounds
+- admin settings for CTP holes + ACE pot adjustment
+- admin stats dashboard
+- admin round correction basics:
   - edit contributions
   - mark dropouts
   - remove player from active round
   - manual team override
   - cancel unfinished round
+
+## Security note
+
+PINs are stored using `scrypt` hashing. Older plaintext PIN rows are automatically migrated to hashed values on startup.
 
 ## ACE pot rule implemented
 
@@ -92,6 +97,7 @@ Important production changes:
 
 ```text
 src/
+  auth.js
   db.js
   repo.js
   utils.js
@@ -105,9 +111,9 @@ docker-compose.yml
 
 ## Next sensible improvements
 
-- hashed PIN storage instead of plaintext
-- round history page and completed round detail view
+- force PIN rotation on first production login
+- completed-round detail screens with edit history
 - audit log for admin corrections
 - export CSV / payout history
-- stronger validation around round completion forms
+- more robust team editor UI
 - per-player lifetime payout totals

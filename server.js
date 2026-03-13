@@ -40,12 +40,14 @@ function requireAdmin(req, res, next) {
   next();
 }
 function setFlash(req, message) { req.session.flash = message; }
+function back(req, fallback = '/') { return req.get('referer') || fallback; }
 
 app.get('/', (req, res) => {
   if (!req.session.user) return res.redirect('/login');
   const activeRound = repo.getActiveRound();
+  const recentRounds = repo.listCompletedRounds(8);
   if (activeRound) return res.redirect(`/rounds/${activeRound.id}`);
-  res.render('home', { acePot: repo.getAcePot(), activeRound: null });
+  res.render('home', { acePot: repo.getAcePot(), activeRound: null, recentRounds });
 });
 
 app.get('/login', (req, res) => res.render('login', { users: repo.getUsers() }));
@@ -69,6 +71,8 @@ app.post('/rounds', requireAuth, (req, res) => {
   const round = repo.createRound();
   res.redirect(`/rounds/${round.id}`);
 });
+
+app.get('/rounds/history', requireAuth, (req, res) => res.render('round-history', { rounds: repo.listCompletedRounds(100) }));
 
 app.get('/rounds/:id', requireAuth, (req, res) => {
   const round = repo.getRound(Number(req.params.id));
@@ -110,22 +114,26 @@ app.post('/rounds/:id/players', requireAuth, (req, res) => {
 });
 
 app.post('/round-players/:id/update', requireAuth, (req, res) => {
-  repo.updateRoundPlayer(Number(req.params.id), {
-    is_member: req.body.is_member === 'on',
-    greens_fee: Number(req.body.greens_fee || 0),
-    ctp_paid: req.body.ctp_paid === 'on',
-    ace_paid: req.body.ace_paid === 'on',
-    payout_paid: req.body.payout_paid === 'on',
-    dropped: req.body.dropped === 'on'
-  });
-  setFlash(req, 'Player entry updated.');
-  res.redirect('back');
+  try {
+    repo.updateRoundPlayer(Number(req.params.id), {
+      is_member: req.body.is_member === 'on',
+      greens_fee: Number(req.body.greens_fee || 0),
+      ctp_paid: req.body.ctp_paid === 'on',
+      ace_paid: req.body.ace_paid === 'on',
+      payout_paid: req.body.payout_paid === 'on',
+      dropped: req.body.dropped === 'on'
+    });
+    setFlash(req, 'Player entry updated.');
+  } catch (error) {
+    setFlash(req, error.message);
+  }
+  res.redirect(back(req));
 });
 
 app.post('/round-players/:id/delete', requireAdmin, (req, res) => {
   repo.removeRoundPlayer(Number(req.params.id));
   setFlash(req, 'Player removed from round.');
-  res.redirect('back');
+  res.redirect(back(req));
 });
 
 app.post('/rounds/:id/start', requireAuth, (req, res) => {
@@ -152,11 +160,18 @@ app.post('/rounds/:id/randomize', requireAuth, (req, res) => {
 });
 
 app.post('/rounds/:id/manual-teams', requireAdmin, (req, res) => {
-  const raw = (req.body.teams || '').split('\n').map((line) => line.trim()).filter(Boolean);
+  const raw = (req.body.teams || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   const players = repo.getRoundPlayers(Number(req.params.id)).filter((p) => !p.dropped);
+  const used = new Set();
   const entries = raw.map((line, idx) => {
     const names = line.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
-    const matched = players.filter((p) => names.includes(p.name.toLowerCase())).map((p) => p.id);
+    const matched = [];
+    for (const player of players) {
+      if (names.includes(player.name.toLowerCase()) && !used.has(player.id)) {
+        matched.push(player.id);
+        used.add(player.id);
+      }
+    }
     return { name: `Team ${idx + 1}`, playerIds: matched };
   });
   repo.setManualTeams(Number(req.params.id), entries);
@@ -169,14 +184,19 @@ app.post('/rounds/:id/complete', requireAuth, (req, res) => {
   const acePlayerIds = Array.isArray(req.body.ace_player_ids)
     ? req.body.ace_player_ids.map(Number)
     : req.body.ace_player_ids ? [Number(req.body.ace_player_ids)] : [];
-  repo.completeRound(roundId, {
-    aceResult: req.body.ace_result,
-    acePlayerIds,
-    ctpPlayerId: req.body.ctp_player_id ? Number(req.body.ctp_player_id) : null,
-    winnerTeamId: req.body.winner_team_id ? Number(req.body.winner_team_id) : null
-  });
-  setFlash(req, 'Round completed and payouts saved.');
-  res.redirect('/');
+  try {
+    repo.completeRound(roundId, {
+      aceResult: req.body.ace_result,
+      acePlayerIds,
+      ctpPlayerId: req.body.ctp_player_id ? Number(req.body.ctp_player_id) : null,
+      winnerTeamId: req.body.winner_team_id ? Number(req.body.winner_team_id) : null
+    });
+    setFlash(req, 'Round completed and payouts saved.');
+    res.redirect('/');
+  } catch (error) {
+    setFlash(req, error.message);
+    res.redirect(`/rounds/${roundId}`);
+  }
 });
 
 app.post('/rounds/:id/cancel', requireAdmin, (req, res) => {

@@ -1,4 +1,5 @@
 const { db } = require('./db');
+const { verifyPin } = require('./auth');
 
 const parseJson = (value, fallback = []) => {
   try { return JSON.parse(value); } catch { return fallback; }
@@ -35,7 +36,10 @@ function getUsers() {
 }
 
 function findUserByCredentials(username, pin) {
-  return db.prepare('SELECT id, username, role FROM users WHERE username = ? AND pin = ?').get(username, pin);
+  const user = db.prepare('SELECT id, username, role, pin FROM users WHERE username = ?').get(username);
+  if (!user) return null;
+  if (!verifyPin(pin, user.pin)) return null;
+  return { id: user.id, username: user.username, role: user.role };
 }
 
 function listPlayers() {
@@ -67,10 +71,6 @@ function createRound() {
   return getRound(result.lastInsertRowid);
 }
 
-function ensureActiveRound() {
-  return getActiveRound() || createRound();
-}
-
 function getRoundPlayers(roundId) {
   return db.prepare(`
     SELECT rp.*, p.name, p.id as player_id
@@ -82,8 +82,12 @@ function getRoundPlayers(roundId) {
 }
 
 function addPlayerToRound(roundId, playerId, contributions) {
+  const round = getRound(roundId);
+  if (!round || round.status === 'completed') throw new Error('Round is not editable.');
   const player = db.prepare('SELECT * FROM players WHERE id = ?').get(playerId);
   if (!player) throw new Error('Player not found');
+  const existing = db.prepare('SELECT id FROM round_players WHERE round_id = ? AND player_id = ?').get(roundId, playerId);
+  if (existing) throw new Error('That player is already in this round.');
   const greens = player.is_member ? 0 : 8;
   db.prepare(`INSERT INTO round_players
     (round_id, player_id, is_member, greens_fee, ctp_paid, ace_paid, payout_paid)
@@ -93,12 +97,13 @@ function addPlayerToRound(roundId, playerId, contributions) {
 }
 
 function updateRoundPlayer(roundPlayerId, fields) {
+  const current = db.prepare('SELECT round_id FROM round_players WHERE id = ?').get(roundPlayerId);
+  if (!current) throw new Error('Round player not found.');
   db.prepare(`UPDATE round_players SET
     is_member = ?, greens_fee = ?, ctp_paid = ?, ace_paid = ?, payout_paid = ?, dropped = ?
     WHERE id = ?`)
     .run(fields.is_member ? 1 : 0, fields.greens_fee, fields.ctp_paid ? 1 : 0, fields.ace_paid ? 1 : 0, fields.payout_paid ? 1 : 0, fields.dropped ? 1 : 0, roundPlayerId);
-  const row = db.prepare('SELECT round_id FROM round_players WHERE id = ?').get(roundPlayerId);
-  if (row) recalcRound(row.round_id);
+  recalcRound(current.round_id);
 }
 
 function removeRoundPlayer(roundPlayerId) {
@@ -199,9 +204,19 @@ function getStats() {
       COALESCE(SUM(greens_total), 0) as total_greens,
       COALESCE(SUM(ctp_total), 0) as total_ctp,
       COALESCE(SUM(payout_total), 0) as total_payout,
-      COALESCE(SUM(ace_payout_total), 0) as total_ace_payout
+      COALESCE(SUM(ace_payout_total), 0) as total_ace_payout,
+      COALESCE(SUM(CASE WHEN greens_total > 0 THEN 1 ELSE 0 END), 0) as guest_rounds
     FROM rounds
     WHERE status = 'completed'
+  `).get();
+
+  const memberCounts = db.prepare(`
+    SELECT
+      SUM(CASE WHEN is_member = 1 THEN 1 ELSE 0 END) as member_entries,
+      SUM(CASE WHEN is_member = 0 THEN 1 ELSE 0 END) as non_member_entries
+    FROM round_players rp
+    JOIN rounds r ON r.id = rp.round_id
+    WHERE r.status = 'completed'
   `).get();
 
   const playerStats = db.prepare(`
@@ -214,20 +229,53 @@ function getStats() {
       SUM(CASE WHEN pa.type = 'winner' THEN 1 ELSE 0 END) as round_wins
     FROM players p
     LEFT JOIN round_players rp ON rp.player_id = p.id
+    LEFT JOIN rounds r ON r.id = rp.round_id AND r.status = 'completed'
     LEFT JOIN payouts pa ON pa.player_id = p.id
     GROUP BY p.id
     ORDER BY rounds_played DESC, LOWER(p.name) ASC
   `).all();
 
   const payoutHistory = db.prepare(`SELECT type, COALESCE(SUM(amount),0) as total FROM payouts GROUP BY type`).all();
-  return { totals, playerStats, payoutHistory, acePot: getAcePot() };
+  return { totals, memberCounts, playerStats, payoutHistory, acePot: getAcePot() };
+}
+
+function listCompletedRounds(limit = 50) {
+  return db.prepare(`
+    SELECT r.*, 
+      (SELECT GROUP_CONCAT(p.name, ', ') FROM payouts pa JOIN players p ON p.id = pa.player_id WHERE pa.round_id = r.id AND pa.type = 'ctp') as ctp_winner_names,
+      (SELECT GROUP_CONCAT(t2.team_name || ': ' || IFNULL(t2.player_names,''), '; ')
+       FROM (
+         SELECT t.id, t.team_name, GROUP_CONCAT(p.name, ' / ') as player_names
+         FROM round_teams t
+         LEFT JOIN round_team_players rtp ON rtp.team_id = t.id
+         LEFT JOIN round_players rp ON rp.id = rtp.round_player_id
+         LEFT JOIN players p ON p.id = rp.player_id
+         WHERE t.round_id = r.id
+           AND EXISTS (SELECT 1 FROM payouts pa WHERE pa.team_id = t.id AND pa.round_id = r.id AND pa.type = 'winner')
+         GROUP BY t.id
+       ) t2) as winning_teams
+    FROM rounds r
+    WHERE r.status = 'completed'
+    ORDER BY r.completed_at DESC, r.id DESC
+    LIMIT ?
+  `).all(limit);
 }
 
 function completeRound(roundId, payload) {
   const round = getRound(roundId);
   if (!round) throw new Error('Round not found');
+  if (round.status !== 'teams') throw new Error('Round must have teams before completion.');
   const activePlayers = getRoundPlayers(roundId).filter((p) => !p.dropped);
+  const teams = getRoundTeams(roundId);
+  if (!activePlayers.length || !teams.length) throw new Error('Round is missing players or teams.');
   const aceContributors = activePlayers.filter((p) => p.ace_paid);
+  const validPlayerIds = new Set(activePlayers.map((p) => p.player_id));
+  const validTeamIds = new Set(teams.map((t) => t.id));
+  const acePlayerIds = (payload.acePlayerIds || []).filter((id) => validPlayerIds.has(id));
+  if (payload.aceResult === 'yes' && !acePlayerIds.length) throw new Error('Select at least one ace hitter.');
+  if (payload.ctpPlayerId && !validPlayerIds.has(payload.ctpPlayerId)) throw new Error('Invalid CTP winner.');
+  if (payload.winnerTeamId && !validTeamIds.has(payload.winnerTeamId)) throw new Error('Invalid winning team.');
+
   const ctpPrize = activePlayers.filter((p) => p.ctp_paid).length;
   const winnerPrize = activePlayers.filter((p) => p.payout_paid).length * 5;
   const acePotBefore = getAcePot();
@@ -238,11 +286,11 @@ function completeRound(roundId, payload) {
     db.prepare('DELETE FROM round_aces WHERE round_id = ?').run(roundId);
     db.prepare('DELETE FROM payouts WHERE round_id = ?').run(roundId);
 
-    if (payload.aceResult === 'yes' && payload.acePlayerIds.length) {
-      const share = acePotBefore / payload.acePlayerIds.length;
+    if (payload.aceResult === 'yes') {
+      const share = acePotBefore / acePlayerIds.length;
       acePayoutTotal = acePotBefore;
       acePotAfter = 0;
-      payload.acePlayerIds.forEach((playerId) => {
+      acePlayerIds.forEach((playerId) => {
         db.prepare('INSERT INTO round_aces (round_id, player_id) VALUES (?, ?)').run(roundId, playerId);
         db.prepare('INSERT INTO payouts (round_id, type, player_id, amount) VALUES (?, ?, ?, ?)').run(roundId, 'ace', playerId, share);
       });
@@ -290,7 +338,8 @@ function cancelRound(roundId) {
 module.exports = {
   getSetting, setSetting, getEligibleCtpHoles, setEligibleCtpHoles, getAcePot, setAcePot,
   getUsers, findUserByCredentials, listPlayers, createPlayer, getOrCreatePlayer,
-  getActiveRound, getRound, createRound, ensureActiveRound, getRoundPlayers, addPlayerToRound,
+  getActiveRound, getRound, createRound, getRoundPlayers, addPlayerToRound,
   updateRoundPlayer, removeRoundPlayer, recalcRound, setRoundStatus, setRoundCtpHole,
-  generateTeams, getRoundTeams, setManualTeams, completeRound, getStats, cancelRound
+  generateTeams, getRoundTeams, setManualTeams, completeRound, getStats, cancelRound,
+  listCompletedRounds
 };
