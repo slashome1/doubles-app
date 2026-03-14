@@ -2,18 +2,40 @@
 
 <script>
 (function(){
-  let last = 0;
   const topbar = document.querySelector('.topbar');
-  if (!topbar) return;
-  window.addEventListener('scroll', function(){
-    const st = window.scrollY || window.pageYOffset;
-    if (st > last && st > 20) {
-      topbar.classList.add('scrolled');
-    } else if (st < last) {
-      topbar.classList.remove('scrolled');
+  const main = document.querySelector('main');
+  if (!topbar || !main) return;
+  // expose topbar height for layout
+  function setTopbarHeight(){
+    const h = topbar.getBoundingClientRect().height;
+    document.documentElement.style.setProperty('--topbar-height', h + 'px');
+    main.classList.add('main-with-topbar');
+  }
+  setTopbarHeight();
+  window.addEventListener('resize', setTopbarHeight);
+
+  let last = window.scrollY || 0;
+  let ticking = false;
+  let hidden = false;
+  const threshold = 8; // small threshold to avoid jitter
+
+  function onScroll(){
+    const st = window.scrollY || 0;
+    const delta = st - last;
+    if (!ticking){
+      window.requestAnimationFrame(() => {
+        if (delta > threshold && st > 20){
+          if (!hidden){ topbar.classList.add('hidden'); topbar.classList.remove('showing'); hidden = true; }
+        } else if (delta < -threshold){
+          if (hidden){ topbar.classList.remove('hidden'); topbar.classList.add('showing'); hidden = false; }
+        }
+        last = st <= 0 ? 0 : st;
+        ticking = false;
+      });
+      ticking = true;
     }
-    last = st <= 0 ? 0 : st;
-  }, { passive: true });
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
 })();
 </script>
 
