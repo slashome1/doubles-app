@@ -1,3 +1,21 @@
   </main>
+
+<script>
+(function(){
+  let last = 0;
+  const topbar = document.querySelector('.topbar');
+  if (!topbar) return;
+  window.addEventListener('scroll', function(){
+    const st = window.scrollY || window.pageYOffset;
+    if (st > last && st > 20) {
+      topbar.classList.add('scrolled');
+    } else if (st < last) {
+      topbar.classList.remove('scrolled');
+    }
+    last = st <= 0 ? 0 : st;
+  }, { passive: true });
+})();
+</script>
+
 </body>
 </html>
