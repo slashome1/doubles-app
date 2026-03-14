@@ -3,14 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Doubles App</title>
+  <title>Olympus Doubles</title>
   <link rel="stylesheet" href="<%= path('/styles.css') %>" />
 </head>
 <body>
   <header class="topbar">
-    <div>
-      <div class="eyebrow">Disc Golf Doubles</div>
-      <h1>Doubles App</h1>
+    <div class="brand-block">
+      <div class="brand-art">
+        <img src="<%= path('/olympus-banner.svg') %>" alt="Olympus Disc Golf Course banner" />
+      </div>
+      <div class="brand-copy">
+        <div class="eyebrow">Olympus Disc Golf Course</div>
+        <h1>Olympus Doubles</h1>
+        <p>League-night round tracking, payouts, and ace pot management.</p>
+      </div>
     </div>
     <% if (currentUser) { %>
       <div class="topbar-actions">
