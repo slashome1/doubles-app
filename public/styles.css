@@ -25,7 +25,8 @@ body {
   background: transparent;
 }
 a { color: inherit; text-decoration: none; }
-.container { max-width: 1100px; margin: 0 auto; padding: 1rem; }
+.container { max-width: 1100px; margin: 0 auto; padding: 1rem; display: flex; flex-direction: column; align-items: center; }
+.card.narrow { width: min(520px, 92%); }
 .topbar {
   position: sticky;
   top: 0;
