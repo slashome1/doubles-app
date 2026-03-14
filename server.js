@@ -9,11 +9,22 @@ const { currency } = require('./src/utils');
 initDb();
 const app = express();
 const PORT = process.env.PORT || 3000;
+const BASE_PATH = (() => {
+  const raw = (process.env.BASE_PATH || '/').trim();
+  if (!raw || raw === '/') return '/';
+  return `/${raw.replace(/^\/+|\/+$/g, '')}`;
+})();
+const routePath = (target = '/') => {
+  if (!target) return BASE_PATH;
+  if (/^https?:\/\//i.test(target)) return target;
+  const normalized = target.startsWith('/') ? target : `/${target}`;
+  return BASE_PATH === '/' ? normalized : `${BASE_PATH}${normalized}`;
+};
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(routePath('/'), express.static(path.join(__dirname, 'public')));
 app.use(session({
   store: new SQLiteStore({ db: 'sessions.sqlite', dir: process.env.DATA_DIR || path.join(__dirname, 'data') }),
   secret: process.env.SESSION_SECRET || 'change-me-in-production',
@@ -26,66 +37,72 @@ app.use((req, res, next) => {
   res.locals.currentUser = req.session.user || null;
   res.locals.currency = currency;
   res.locals.flash = req.session.flash;
+  res.locals.basePath = BASE_PATH;
+  res.locals.path = routePath;
   delete req.session.flash;
   next();
 });
 
 function requireAuth(req, res, next) {
-  if (!req.session.user) return res.redirect('/login');
+  if (!req.session.user) return res.redirect(routePath('/login'));
   next();
 }
 function requireAdmin(req, res, next) {
-  if (!req.session.user) return res.redirect('/login');
+  if (!req.session.user) return res.redirect(routePath('/login'));
   if (req.session.user.role !== 'admin') return res.status(403).render('error', { message: 'Admin access only.' });
   next();
 }
 function setFlash(req, message) { req.session.flash = message; }
-function back(req, fallback = '/') { return req.get('referer') || fallback; }
+function back(req, fallback = '/') { return req.get('referer') || routePath(fallback); }
 function parseAceIds(value) {
   return Array.isArray(value) ? value.map(Number) : value ? [Number(value)] : [];
 }
 
-app.get('/', (req, res) => {
-  if (!req.session.user) return res.redirect('/login');
+if (BASE_PATH !== '/') {
+  app.get('/', (req, res) => res.redirect(routePath('/')));
+}
+
+app.get(routePath('/'), (req, res) => {
+  if (!req.session.user) return res.redirect(routePath('/login'));
   const dashboard = repo.getDashboard();
-  if (dashboard.activeRound) return res.redirect(`/rounds/${dashboard.activeRound.id}`);
+  if (dashboard.activeRound) return res.redirect(routePath(`/rounds/${dashboard.activeRound.id}`));
   res.render('home', dashboard);
 });
 
-app.get('/login', (req, res) => res.render('login', { users: repo.getUsers() }));
-app.post('/login', (req, res) => {
+app.get(routePath('/login'), (req, res) => res.render('login', { users: repo.getUsers() }));
+app.post(routePath('/login'), (req, res) => {
   const { username, pin } = req.body;
   const user = repo.findUserByCredentials(username, pin);
   if (!user) {
     setFlash(req, 'Wrong username or PIN.');
-    return res.redirect('/login');
+    return res.redirect(routePath('/login'));
   }
   req.session.user = user;
   const activeRound = repo.getActiveRound();
-  if (activeRound) return res.redirect(`/rounds/${activeRound.id}`);
-  res.redirect('/');
+  if (activeRound) return res.redirect(routePath(`/rounds/${activeRound.id}`));
+  res.redirect(routePath('/'));
 });
-app.post('/logout', (req, res) => req.session.destroy(() => res.redirect('/login')));
+app.post(routePath('/logout'), (req, res) => req.session.destroy(() => res.redirect(routePath('/login'))));
 
-app.post('/rounds', requireAuth, (req, res) => {
+app.post(routePath('/rounds'), requireAuth, (req, res) => {
   if (req.session.user.role === 'admin') {
     setFlash(req, 'Admins cannot start new rounds. Use the standard user account for round operations.');
-    return res.redirect('/');
+    return res.redirect(routePath('/')); 
   }
   const activeRound = repo.getActiveRound();
-  if (activeRound) return res.redirect(`/rounds/${activeRound.id}`);
+  if (activeRound) return res.redirect(routePath(`/rounds/${activeRound.id}`));
   const round = repo.createRound(req.session.user.username);
-  res.redirect(`/rounds/${round.id}`);
+  res.redirect(routePath(`/rounds/${round.id}`));
 });
 
-app.get('/rounds/history', requireAuth, (req, res) => res.render('round-history', { rounds: repo.listCompletedRounds(100) }));
-app.get('/rounds/:id/detail', requireAuth, (req, res) => {
+app.get(routePath('/rounds/history'), requireAuth, (req, res) => res.render('round-history', { rounds: repo.listCompletedRounds(100) }));
+app.get(routePath('/rounds/:id/detail'), requireAuth, (req, res) => {
   const detail = repo.getRoundDetail(Number(req.params.id));
   if (!detail) return res.status(404).render('error', { message: 'Round not found.' });
   res.render('round-detail', detail);
 });
 
-app.get('/rounds/:id', requireAuth, (req, res) => {
+app.get(routePath('/rounds/:id'), requireAuth, (req, res) => {
   const round = repo.getRound(Number(req.params.id));
   if (!round) return res.status(404).render('error', { message: 'Round not found.' });
   const players = repo.getRoundPlayers(round.id);
@@ -104,7 +121,7 @@ app.get('/rounds/:id', requireAuth, (req, res) => {
   });
 });
 
-app.post('/rounds/:id/players', requireAuth, (req, res) => {
+app.post(routePath('/rounds/:id/players'), requireAuth, (req, res) => {
   const roundId = Number(req.params.id);
   let player;
   try {
@@ -125,10 +142,10 @@ app.post('/rounds/:id/players', requireAuth, (req, res) => {
   } catch (error) {
     setFlash(req, error.message);
   }
-  res.redirect(`/rounds/${roundId}`);
+  res.redirect(routePath(`/rounds/${roundId}`));
 });
 
-app.post('/round-players/:id/update', requireAuth, (req, res) => {
+app.post(routePath('/round-players/:id/update'), requireAuth, (req, res) => {
   try {
     const current = repo.getRoundPlayers(Number(req.body.round_id || 0)).find((p) => p.id === Number(req.params.id));
     repo.updateRoundPlayer(Number(req.params.id), {
@@ -146,7 +163,7 @@ app.post('/round-players/:id/update', requireAuth, (req, res) => {
   res.redirect(back(req));
 });
 
-app.post('/round-players/:id/drop-toggle', requireAuth, (req, res) => {
+app.post(routePath('/round-players/:id/drop-toggle'), requireAuth, (req, res) => {
   try {
     repo.toggleDropped(Number(req.params.id), req.session.user.username);
     setFlash(req, 'Player drop status updated. Contribution money stays in the round by default.');
@@ -156,36 +173,36 @@ app.post('/round-players/:id/drop-toggle', requireAuth, (req, res) => {
   res.redirect(back(req));
 });
 
-app.post('/round-players/:id/delete', requireAdmin, (req, res) => {
+app.post(routePath('/round-players/:id/delete'), requireAdmin, (req, res) => {
   repo.removeRoundPlayer(Number(req.params.id), req.session.user.username);
   setFlash(req, 'Player removed from round.');
   res.redirect(back(req));
 });
 
-app.post('/rounds/:id/start', requireAuth, (req, res) => {
+app.post(routePath('/rounds/:id/start'), requireAuth, (req, res) => {
   const roundId = Number(req.params.id);
   const holes = repo.getEligibleCtpHoles();
   if (!holes.length) {
     setFlash(req, 'No eligible CTP holes set by admin yet.');
-    return res.redirect(`/rounds/${roundId}`);
+    return res.redirect(routePath(`/rounds/${roundId}`));
   }
   const hole = holes[Math.floor(Math.random() * holes.length)];
   repo.setRoundCtpHole(roundId, hole, req.session.user.username);
   setFlash(req, `CTP hole selected: ${hole}`);
-  res.redirect(`/rounds/${roundId}`);
+  res.redirect(routePath(`/rounds/${roundId}`));
 });
 
-app.post('/rounds/:id/randomize', requireAuth, (req, res) => {
+app.post(routePath('/rounds/:id/randomize'), requireAuth, (req, res) => {
   try {
     repo.generateTeams(Number(req.params.id), req.session.user.username);
     setFlash(req, 'Teams randomized.');
   } catch (error) {
     setFlash(req, error.message);
   }
-  res.redirect(`/rounds/${req.params.id}`);
+  res.redirect(routePath(`/rounds/${req.params.id}`));
 });
 
-app.post('/rounds/:id/manual-teams', requireAdmin, (req, res) => {
+app.post(routePath('/rounds/:id/manual-teams'), requireAdmin, (req, res) => {
   const raw = (req.body.teams || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   const players = repo.getRoundPlayers(Number(req.params.id)).filter((p) => !p.dropped);
   const used = new Set();
@@ -202,10 +219,10 @@ app.post('/rounds/:id/manual-teams', requireAdmin, (req, res) => {
   });
   repo.setManualTeams(Number(req.params.id), entries, req.session.user.username);
   setFlash(req, 'Teams updated manually.');
-  res.redirect(`/rounds/${req.params.id}`);
+  res.redirect(routePath(`/rounds/${req.params.id}`));
 });
 
-app.post('/rounds/:id/set-ctp-hole', requireAdmin, (req, res) => {
+app.post(routePath('/rounds/:id/set-ctp-hole'), requireAdmin, (req, res) => {
   try {
     const hole = String(req.body.ctp_hole || '').trim();
     if (!hole) throw new Error('Pick a CTP hole.');
@@ -214,20 +231,20 @@ app.post('/rounds/:id/set-ctp-hole', requireAdmin, (req, res) => {
   } catch (error) {
     setFlash(req, error.message);
   }
-  res.redirect(`/rounds/${req.params.id}`);
+  res.redirect(routePath(`/rounds/${req.params.id}`));
 });
 
-app.post('/rounds/:id/reset-teams', requireAdmin, (req, res) => {
+app.post(routePath('/rounds/:id/reset-teams'), requireAdmin, (req, res) => {
   try {
     repo.resetTeams(Number(req.params.id), req.session.user.username);
     setFlash(req, 'Teams cleared. Round moved back to ready state.');
   } catch (error) {
     setFlash(req, error.message);
   }
-  res.redirect(`/rounds/${req.params.id}`);
+  res.redirect(routePath(`/rounds/${req.params.id}`));
 });
 
-app.post('/admin/users/pins', requireAdmin, (req, res) => {
+app.post(routePath('/admin/users/pins'), requireAdmin, (req, res) => {
   try {
     repo.updateUserPin('admin', req.body.admin_pin, req.session.user.username);
     repo.updateUserPin('user', req.body.user_pin, req.session.user.username);
@@ -235,10 +252,10 @@ app.post('/admin/users/pins', requireAdmin, (req, res) => {
   } catch (error) {
     setFlash(req, error.message);
   }
-  res.redirect('/admin/settings');
+  res.redirect(routePath('/admin/settings'));
 });
 
-app.post('/rounds/:id/complete', requireAuth, (req, res) => {
+app.post(routePath('/rounds/:id/complete'), requireAuth, (req, res) => {
   const roundId = Number(req.params.id);
   try {
     repo.completeRound(roundId, {
@@ -248,14 +265,14 @@ app.post('/rounds/:id/complete', requireAuth, (req, res) => {
       winnerTeamId: req.body.winner_team_id ? Number(req.body.winner_team_id) : null
     }, req.session.user.username);
     setFlash(req, 'Round completed and payouts saved.');
-    res.redirect('/');
+    res.redirect(routePath('/'));
   } catch (error) {
     setFlash(req, error.message);
-    res.redirect(`/rounds/${roundId}`);
+    res.redirect(routePath(`/rounds/${roundId}`));
   }
 });
 
-app.post('/rounds/:id/correct-payouts', requireAdmin, (req, res) => {
+app.post(routePath('/rounds/:id/correct-payouts'), requireAdmin, (req, res) => {
   const roundId = Number(req.params.id);
   try {
     repo.correctCompletedRound(roundId, {
@@ -268,40 +285,40 @@ app.post('/rounds/:id/correct-payouts', requireAdmin, (req, res) => {
   } catch (error) {
     setFlash(req, error.message);
   }
-  res.redirect(`/rounds/${roundId}/detail`);
+  res.redirect(routePath(`/rounds/${roundId}/detail`));
 });
 
-app.get('/admin/export/rounds.csv', requireAdmin, (req, res) => {
+app.get(routePath('/admin/export/rounds.csv'), requireAdmin, (req, res) => {
   res.type('text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename="doubles-rounds.csv"');
   res.send(repo.exportRoundsCsv());
 });
 
-app.get('/admin/export/payouts.csv', requireAdmin, (req, res) => {
+app.get(routePath('/admin/export/payouts.csv'), requireAdmin, (req, res) => {
   res.type('text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename="doubles-payouts.csv"');
   res.send(repo.exportPayoutsCsv());
 });
 
-app.post('/rounds/:id/cancel', requireAdmin, (req, res) => {
+app.post(routePath('/rounds/:id/cancel'), requireAdmin, (req, res) => {
   repo.cancelRound(Number(req.params.id), req.session.user.username);
   setFlash(req, 'Active round canceled.');
-  res.redirect('/');
+  res.redirect(routePath('/'));
 });
 
-app.get('/admin/settings', requireAdmin, (req, res) => {
+app.get(routePath('/admin/settings'), requireAdmin, (req, res) => {
   res.render('admin-settings', { holes: repo.getEligibleCtpHoles(), acePot: repo.getAcePot(), dbPath, auditLog: repo.getAuditLog(100) });
 });
-app.post('/admin/settings', requireAdmin, (req, res) => {
+app.post(routePath('/admin/settings'), requireAdmin, (req, res) => {
   const holes = (req.body.holes || '').split(',').map((h) => h.trim()).filter(Boolean);
   repo.setEligibleCtpHoles(holes);
   if (req.body.ace_pot !== undefined && req.body.ace_pot !== '') repo.setAcePot(Number(req.body.ace_pot || 0));
   repo.logAudit('settings.updated', 'Updated admin settings', null, req.session.user.username);
   setFlash(req, 'Settings updated.');
-  res.redirect('/admin/settings');
+  res.redirect(routePath('/admin/settings'));
 });
 
-app.get('/admin/stats', requireAdmin, (req, res) => res.render('admin-stats', { stats: repo.getStats() }));
+app.get(routePath('/admin/stats'), requireAdmin, (req, res) => res.render('admin-stats', { stats: repo.getStats() }));
 
 app.use((req, res) => res.status(404).render('error', { message: 'Not found.' }));
 app.listen(PORT, () => console.log(`Doubles App listening on ${PORT}`));

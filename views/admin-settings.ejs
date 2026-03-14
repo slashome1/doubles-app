@@ -1,7 +1,7 @@
 <%- include('partials/header') %>
 <section class="card">
   <h2>Admin Settings</h2>
-  <form method="post" action="/admin/settings" class="stack">
+  <form method="post" action="<%= path('/admin/settings') %>" class="stack">
     <label>Eligible CTP holes (comma separated)
       <input name="holes" value="<%= holes.join(', ') %>" placeholder="3, 7, 12, 17" />
     </label>
@@ -14,7 +14,7 @@
 
 <section class="card">
   <h2>Login PINs</h2>
-  <form method="post" action="/admin/users/pins" class="stack">
+  <form method="post" action="<%= path('/admin/users/pins') %>" class="stack">
     <label>Admin PIN
       <input name="admin_pin" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="0815" required />
     </label>

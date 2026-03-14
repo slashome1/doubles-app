@@ -21,11 +21,11 @@
 <section class="card">
   <div class="tab-row">
     <% if (round.status === 'signup') { %>
-      <a class="button <%= currentView === 'signup' ? 'primary' : 'secondary' %> tab-button" href="/rounds/<%= round.id %>?view=signup">Signup</a>
+      <a class="button <%= currentView === 'signup' ? 'primary' : 'secondary' %> tab-button" href="<%= path(`/rounds/${round.id}`) %>?view=signup">Signup</a>
     <% } %>
-    <a class="button <%= currentView === 'players' ? 'primary' : 'secondary' %> tab-button" href="/rounds/<%= round.id %>?view=players">Players</a>
+    <a class="button <%= currentView === 'players' ? 'primary' : 'secondary' %> tab-button" href="<%= path(`/rounds/${round.id}`) %>?view=players">Players</a>
     <% if (round.status !== 'signup') { %>
-      <a class="button <%= currentView === 'teams' ? 'primary' : 'secondary' %> tab-button" href="/rounds/<%= round.id %>?view=teams">Round</a>
+      <a class="button <%= currentView === 'teams' ? 'primary' : 'secondary' %> tab-button" href="<%= path(`/rounds/${round.id}`) %>?view=teams">Round</a>
     <% } %>
   </div>
 </section>
@@ -35,13 +35,13 @@
   <% if (round.status === 'signup' && currentView !== 'players') { %>
   <section class="card">
     <h2>Signup</h2>
-    <form method="get" action="/rounds/<%= round.id %>" class="stack small">
+    <form method="get" action="<%= path(`/rounds/${round.id}`) %>" class="stack small">
       <label>Search existing players
         <input name="player_query" value="<%= playerQuery || '' %>" placeholder="Start typing a name" />
       </label>
       <button class="button ghost big-touch" type="submit">Filter Player List</button>
     </form>
-    <form method="post" action="/rounds/<%= round.id %>/players" class="stack">
+    <form method="post" action="<%= path(`/rounds/${round.id}/players`) %>" class="stack">
       <label>Add existing player
         <select name="player_id" class="big-touch">
           <option value="">Pick previous player</option>
@@ -73,7 +73,7 @@
     <div class="stack small">
       <% players.forEach((player) => { %>
         <div class="player-card">
-          <form method="post" action="/round-players/<%= player.id %>/update" class="stack">
+          <form method="post" action="<%= path(`/round-players/${player.id}/update`) %>" class="stack">
             <input type="hidden" name="round_id" value="<%= round.id %>" />
             <div class="player-head"><strong><%= player.name %></strong><span><%= player.dropped ? 'Dropped / Forfeit kept' : (player.is_member ? 'Member' : 'Guest') %></span></div>
             <div class="checkbox-grid compact">
@@ -90,11 +90,11 @@
             </div>
           </form>
           <div class="actions-row">
-            <form method="post" action="/round-players/<%= player.id %>/drop-toggle" onsubmit="return confirm('<%= player.dropped ? 'Restore this player to active status?' : 'Drop this player? Their money will stay in the round as a forfeit.' %>')">
+            <form method="post" action="<%= path(`/round-players/${player.id}/drop-toggle`) %>" onsubmit="return confirm('<%= player.dropped ? 'Restore this player to active status?' : 'Drop this player? Their money will stay in the round as a forfeit.' %>')">
               <button class="button <%= player.dropped ? 'secondary' : 'danger' %> big-touch" type="submit"><%= player.dropped ? 'Restore Player' : 'Drop Player' %></button>
             </form>
             <% if (currentUser.role === 'admin') { %>
-              <form method="post" action="/round-players/<%= player.id %>/delete" onsubmit="return confirm('Remove this player from the round?')">
+              <form method="post" action="<%= path(`/round-players/${player.id}/delete`) %>" onsubmit="return confirm('Remove this player from the round?')">
                 <button class="button danger big-touch" type="submit">Remove</button>
               </form>
             <% } %>
@@ -110,7 +110,7 @@
 <section class="card">
   <h2>Start Round</h2>
   <p class="muted">Randomly pick a CTP hole from admin-approved holes: <%= eligibleHoles.join(', ') || 'none yet' %></p>
-  <form method="post" action="/rounds/<%= round.id %>/start">
+  <form method="post" action="<%= path(`/rounds/${round.id}/start`) %>">
     <button class="button primary large" type="submit" <%= players.length < 2 ? 'disabled' : '' %>>Start the Round!</button>
   </form>
 </section>
@@ -124,7 +124,7 @@
     <p>Current players: <strong><%= activePlayers.length %></strong></p>
     <p>CTP payout: <strong><%= currency(round.ctp_total) %></strong></p>
     <p>Winning payout: <strong><%= currency(round.payout_total) %></strong></p>
-    <form method="post" action="/rounds/<%= round.id %>/randomize">
+    <form method="post" action="<%= path(`/rounds/${round.id}/randomize`) %>">
       <button class="button primary large" type="submit">Randomize Teams</button>
     </form>
   </section>
@@ -147,7 +147,7 @@
     <% } %>
     <% if (currentUser.role === 'admin') { %>
       <hr />
-      <form method="post" action="/rounds/<%= round.id %>/manual-teams" class="stack">
+      <form method="post" action="<%= path(`/rounds/${round.id}/manual-teams`) %>" class="stack">
         <label>Manual teams (one team per line, comma separated names)
           <textarea name="teams" rows="5" placeholder="Alice, Bob&#10;Chris"></textarea>
         </label>
@@ -168,7 +168,7 @@
 
 <section class="card" id="complete-round-panel" hidden>
   <h2>Round Results</h2>
-  <form method="post" action="/rounds/<%= round.id %>/complete" class="stack">
+  <form method="post" action="<%= path(`/rounds/${round.id}/complete`) %>" class="stack">
     <label>Ace result
       <select name="ace_result" id="ace_result" class="big-touch" required>
         <option value="no">No ace</option>
@@ -227,7 +227,7 @@
 <section class="card">
   <h2>Admin Controls</h2>
   <div class="grid two">
-    <form method="post" action="/rounds/<%= round.id %>/set-ctp-hole" class="stack">
+    <form method="post" action="<%= path(`/rounds/${round.id}/set-ctp-hole`) %>" class="stack">
       <label>Set / correct CTP hole
         <select name="ctp_hole" class="big-touch" required>
           <option value="">Pick hole</option>
@@ -239,7 +239,7 @@
       <button class="button secondary big-touch" type="submit">Save CTP Hole</button>
     </form>
 
-    <form method="post" action="/rounds/<%= round.id %>/reset-teams" class="stack" onsubmit="return confirm('Clear current teams and move the round back to ready state?')">
+    <form method="post" action="<%= path(`/rounds/${round.id}/reset-teams`) %>" class="stack" onsubmit="return confirm('Clear current teams and move the round back to ready state?')">
       <div>
         <strong>Reset teams</strong>
         <p class="muted">Use this if pairings need to be redone after edits or dropouts.</p>
@@ -248,7 +248,7 @@
     </form>
   </div>
 
-  <form method="post" action="/rounds/<%= round.id %>/cancel" onsubmit="return confirm('Cancel and delete this unfinished round?')">
+  <form method="post" action="<%= path(`/rounds/${round.id}/cancel`) %>" onsubmit="return confirm('Cancel and delete this unfinished round?')">
     <button class="button danger large" type="submit">Cancel Current Round</button>
   </form>
 </section>

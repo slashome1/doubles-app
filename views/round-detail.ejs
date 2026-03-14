@@ -68,7 +68,7 @@
 
 <section class="card">
   <h2>Admin Payout Corrections</h2>
-  <form method="post" action="/rounds/<%= round.id %>/correct-payouts" class="stack">
+  <form method="post" action="<%= path(`/rounds/${round.id}/correct-payouts`) %>" class="stack">
     <label>Ace result
       <select name="ace_result" required>
         <option value="no" <%= round.ace_result === 'no' ? 'selected' : '' %>>No ace</option>

@@ -85,10 +85,12 @@ The SQLite DB and session data live in `./data`.
 
 ## Reverse proxy
 
-Intended hostname:
-- `https://doubles.slashome.duckdns.org`
+Recommended public URL for the current DuckDNS + SWAG setup:
+- `https://slashome.duckdns.org/doubles/`
 
-Proxy incoming HTTPS traffic to the app container on port `3000`.
+Set `BASE_PATH=/doubles` and proxy incoming HTTPS traffic on that path to the app container on port `3000`.
+
+If you later move to a real domain with valid subdomain certificates, you can switch `BASE_PATH` back to `/` and publish the app on its own hostname.
 
 ## Environment variables
 

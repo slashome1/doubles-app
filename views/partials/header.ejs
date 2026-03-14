@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Doubles App</title>
-  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="<%= path('/styles.css') %>" />
 </head>
 <body>
   <header class="topbar">
@@ -14,14 +14,14 @@
     </div>
     <% if (currentUser) { %>
       <div class="topbar-actions">
-        <a class="button secondary" href="/">Home</a>
-        <a class="button secondary" href="/rounds/history">History</a>
+        <a class="button secondary" href="<%= path('/') %>">Home</a>
+        <a class="button secondary" href="<%= path('/rounds/history') %>">History</a>
         <span class="pill"><%= currentUser.username %> · <%= currentUser.role %></span>
         <% if (currentUser.role === 'admin') { %>
-          <a class="button secondary" href="/admin/settings">Settings</a>
-          <a class="button secondary" href="/admin/stats">Stats</a>
+          <a class="button secondary" href="<%= path('/admin/settings') %>">Settings</a>
+          <a class="button secondary" href="<%= path('/admin/stats') %>">Stats</a>
         <% } %>
-        <form method="post" action="/logout"><button class="button ghost" type="submit">Log out</button></form>
+        <form method="post" action="<%= path('/logout') %>"><button class="button ghost" type="submit">Log out</button></form>
       </div>
     <% } %>
   </header>

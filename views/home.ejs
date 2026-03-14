@@ -6,7 +6,7 @@
     <p class="muted">Tonight: <strong><%= tonight.rounds_today %></strong> rounds · <strong><%= currency(tonight.greens_today) %></strong> greens collected</p>
   </div>
   <% if (currentUser.role !== 'admin') { %>
-    <form method="post" action="/rounds">
+    <form method="post" action="<%= path('/rounds') %>">
       <button class="button primary large" type="submit">Start New Doubles Round</button>
     </form>
   <% } else { %>
@@ -54,7 +54,7 @@
           <div class="player-head"><strong>Round #<%= round.id %></strong><span><%= round.completed_at || round.created_at %></span></div>
           <div>CTP hole: <strong><%= round.ctp_hole || '—' %></strong></div>
           <div>ACE payout: <strong><%= currency(round.ace_payout_total) %></strong> · CTP: <strong><%= currency(round.ctp_payout_total) %></strong> · Winners: <strong><%= currency(round.winner_payout_total) %></strong></div>
-          <div class="actions-row"><a class="button secondary" href="/rounds/<%= round.id %>/detail">View Details</a></div>
+          <div class="actions-row"><a class="button secondary" href="<%= path(`/rounds/${round.id}/detail`) %>">View Details</a></div>
         </div>
       <% }) %>
     </div>

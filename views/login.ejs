@@ -2,7 +2,7 @@
 <section class="card narrow">
   <h2>PIN Login</h2>
   <p class="muted">Quick entry for league night. Default accounts are documented in the README.</p>
-  <form method="post" action="/login" class="stack">
+  <form method="post" action="<%= path('/login') %>" class="stack">
     <label>Username
       <input name="username" list="users" placeholder="admin or user" required />
     </label>
