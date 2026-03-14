@@ -14,20 +14,26 @@
   setTopbarHeight();
   window.addEventListener('resize', setTopbarHeight);
 
+  // start visible
+  topbar.classList.add('showing');
+
   let last = window.scrollY || 0;
   let ticking = false;
   let hidden = false;
-  const threshold = 8; // small threshold to avoid jitter
+  const threshold = 28; // larger threshold to avoid jitter
+  let lock = false; // brief lock to prevent snap
+  const lockDuration = 320; // ms
 
   function onScroll(){
     const st = window.scrollY || 0;
     const delta = st - last;
     if (!ticking){
       window.requestAnimationFrame(() => {
+        if (lock) { last = st <= 0 ? 0 : st; ticking = false; return; }
         if (delta > threshold && st > 20){
-          if (!hidden){ topbar.classList.add('hidden'); topbar.classList.remove('showing'); hidden = true; }
+          if (!hidden){ topbar.classList.add('hidden'); topbar.classList.remove('showing'); hidden = true; lock = true; setTimeout(()=>lock=false, lockDuration); }
         } else if (delta < -threshold){
-          if (hidden){ topbar.classList.remove('hidden'); topbar.classList.add('showing'); hidden = false; }
+          if (hidden){ topbar.classList.remove('hidden'); topbar.classList.add('showing'); hidden = false; lock = true; setTimeout(()=>lock=false, lockDuration); }
         }
         last = st <= 0 ? 0 : st;
         ticking = false;

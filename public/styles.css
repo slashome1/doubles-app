@@ -51,7 +51,13 @@ a { color: inherit; text-decoration: none; }
 }
 .main-with-topbar {
   padding-top: var(--topbar-height, 0px);
+  min-height: calc(100vh - var(--topbar-height, 0px));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
 }
+.card.narrow { margin-top: 1.2rem; }
 .topbar.hidden { transform: translateY(-110%); pointer-events: none; }
 .topbar.showing { transform: translateY(0); pointer-events: auto; }
 .brand-block { display: grid; gap: .25rem; text-align:center; max-width:920px; margin:0 auto; }
