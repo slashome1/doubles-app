@@ -69,7 +69,7 @@ app.get(routePath('/'), (req, res) => {
   res.render('home', dashboard);
 });
 
-app.get(routePath('/login'), (req, res) => res.render('login', { users: repo.getUsers() }));
+app.get(routePath('/login'), (req, res) => res.render('login', { users: repo.getUsers(), showOlympusBanner: true }));
 app.post(routePath('/login'), (req, res) => {
   const { username, pin } = req.body;
   const user = repo.findUserByCredentials(username, pin);
