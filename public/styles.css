@@ -260,3 +260,5 @@ img { max-width: 100%; }
   .totals-grid { grid-template-columns: 1fr; }
   .brand-art { border-radius: 18px; }
 }
+
+.page-back .button { max-width: 220px; }
