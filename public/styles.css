@@ -28,19 +28,19 @@ a { color: inherit; text-decoration: none; }
 .container { max-width: 1100px; margin: 0 auto; padding: 1rem; display: flex; flex-direction: column; align-items: center; }
 .card.narrow { width: min(520px, 92%); }
 .topbar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  top: 0;
-  z-index: 1200;
+  position: relative; /* keep header in document flow so it never overlaps content */
+  left: auto;
+  right: auto;
+  top: auto;
+  z-index: 20;
   display: block;
   padding: 0.6rem 1rem;
   background: rgba(20, 9, 11, .94);
   border-bottom: 1px solid rgba(255,255,255,.06);
   backdrop-filter: blur(12px);
-  box-shadow: 0 12px 32px rgba(0,0,0,.28);
-  transition: transform .28s cubic-bezier(.2,.9,.3,1), box-shadow .22s ease;
-  will-change: transform;
+  box-shadow: 0 12px 32px rgba(0,0,0,.08);
+  transition: height .28s cubic-bezier(.2,.9,.3,1), box-shadow .22s ease, transform .18s ease;
+  will-change: height, transform;
 }
 .topbar-inner{
   display:flex;
@@ -58,8 +58,8 @@ a { color: inherit; text-decoration: none; }
   flex-direction: column;
 }
 .card.narrow { margin-top: 1.2rem; }
-.topbar.hidden { transform: translateY(-110%); pointer-events: none; }
-.topbar.showing { transform: translateY(0); pointer-events: auto; }
+.topbar.hidden { height: 0 !important; padding-top: 0 !important; padding-bottom: 0 !important; overflow: hidden; box-shadow: none !important; }
+.topbar.showing { height: auto; }
 .brand-block { display: grid; gap: .25rem; text-align:center; max-width:1100px; margin:0 auto; }
 .brand-art {
   width: min(100%, 420px);

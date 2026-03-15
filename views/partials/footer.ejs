@@ -31,9 +31,9 @@
       window.requestAnimationFrame(() => {
         if (lock) { last = st <= 0 ? 0 : st; ticking = false; return; }
         if (delta > threshold && st > 20){
-          if (!hidden){ topbar.classList.add('hidden'); topbar.classList.remove('showing'); hidden = true; lock = true; setTimeout(()=>lock=false, lockDuration); }
+          if (!hidden){ topbar.classList.add('hidden'); topbar.classList.remove('showing'); hidden = true; lock = true; setTimeout(()=>{ lock=false; setTopbarHeight(); }, lockDuration); }
         } else if (delta < -threshold){
-          if (hidden){ topbar.classList.remove('hidden'); topbar.classList.add('showing'); hidden = false; lock = true; setTimeout(()=>lock=false, lockDuration); }
+          if (hidden){ topbar.classList.remove('hidden'); topbar.classList.add('showing'); hidden = false; lock = true; setTimeout(()=>{ lock=false; setTopbarHeight(); }, lockDuration); }
         }
         last = st <= 0 ? 0 : st;
         ticking = false;
