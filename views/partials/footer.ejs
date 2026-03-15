@@ -42,7 +42,23 @@
     }
   }
   window.addEventListener('scroll', onScroll, { passive: true });
+  // reveal zone: if header hidden, allow small top strip to capture wheel/mouseenter to re-open it
+  const reveal = document.querySelector('.topbar-reveal');
+  if (reveal){
+    reveal.addEventListener('wheel', (ev)=>{
+      if (ev.deltaY < 0 && hidden){ // wheel up
+        topbar.classList.remove('hidden'); topbar.classList.add('showing'); hidden = false; setTopbarHeight();
+      }
+    }, { passive: true });
+    reveal.addEventListener('mouseenter', ()=>{
+      if (hidden){ topbar.classList.remove('hidden'); topbar.classList.add('showing'); hidden = false; setTopbarHeight(); }
+    });
+  }
 })();
+</script>
+
+</body>
+</html>
 </script>
 
 </body>
