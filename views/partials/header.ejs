@@ -23,7 +23,6 @@
         <div class="topbar-actions">
           <a class="button secondary" href="<%= path('/') %>">Home</a>
           <a class="button secondary" href="<%= path('/rounds/history') %>">History</a>
-          <span class="pill"><%= currentUser.username %> · <%= currentUser.role %></span>
           <% if (currentUser.role === 'admin') { %>
             <a class="button secondary" href="<%= path('/admin/settings') %>">Settings</a>
             <a class="button secondary" href="<%= path('/admin/stats') %>">Stats</a>
